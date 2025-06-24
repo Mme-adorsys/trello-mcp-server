@@ -176,10 +176,6 @@ export class TrelloClient {
     return this.request<TrelloBoard>('/boards', 'POST', options, true);
   }
 
-  async updateBoard(boardId: string, updates: Partial<TrelloBoard>): Promise<TrelloBoard> {
-    return this.request<TrelloBoard>(`/boards/${boardId}`, 'PUT', updates);
-  }
-
   async closeBoard(boardId: string): Promise<TrelloBoard> {
     return this.request<TrelloBoard>(`/boards/${boardId}`, 'PUT', { closed: true });
   }
@@ -279,10 +275,6 @@ export class TrelloClient {
     return this.request<TrelloMember[]>(`/boards/${boardId}/members`);
   }
 
-  async addMemberToBoard(boardId: string, email: string): Promise<TrelloMember> {
-    return this.request<TrelloMember>(`/boards/${boardId}/members`, 'PUT', { email });
-  }
-
   async removeMemberFromBoard(boardId: string, memberId: string): Promise<void> {
     await this.request(`/boards/${boardId}/members/${memberId}`, 'DELETE');
   }
@@ -313,4 +305,145 @@ export class TrelloClient {
     const { id, ...query } = params;
     return this.request<TrelloBoard[]>(`/organizations/${id}/boards`, 'GET', query, true);
   }
+
+    // BOARDS API - Comprehensive methods
+    async getBoardDetailed(params: {
+      id: string;
+      actions?: string;
+      boardStars?: string;
+      cards?: string;
+      card_pluginData?: boolean;
+      checklists?: string;
+      customFields?: boolean;
+      fields?: string;
+      labels?: string;
+      lists?: string;
+      members?: string;
+      memberships?: string;
+      pluginData?: boolean;
+      organization?: boolean;
+      organization_pluginData?: boolean;
+      myPrefs?: boolean;
+      tags?: boolean;
+    }): Promise<TrelloBoard> {
+      const { id, ...query } = params;
+      return this.request<TrelloBoard>(`/boards/${id}`, 'GET', query, true);
+    }
+  
+    async updateBoard(params: { id: string; [key: string]: any }): Promise<TrelloBoard> {
+      const { id, ...query } = params;
+      return this.request<TrelloBoard>(`/boards/${id}`, 'PUT', query, true);
+    }
+  
+    async deleteBoard(id: string): Promise<void> {
+      await this.request(`/boards/${id}`, 'DELETE');
+    }
+  
+    async getBoardField(params: { id: string; field: string }): Promise<any> {
+      const { id, field } = params;
+      return this.request(`/boards/${id}/${field}`, 'GET');
+    }
+  
+    async getBoardActions(params: {
+      boardId: string;
+      fields?: string;
+      filter?: string;
+      format?: string;
+      idModels?: string;
+      limit?: number;
+      member?: boolean;
+      member_fields?: string;
+      memberCreator?: boolean;
+      memberCreator_fields?: string;
+      page?: number;
+      reactions?: boolean;
+      before?: string;
+      since?: string;
+    }): Promise<any[]> {
+      const { boardId, ...query } = params;
+      return this.request<any[]>(`/boards/${boardId}/actions`, 'GET', query, true);
+    }
+  
+    async getBoardCards(params: { id: string; filter?: string }): Promise<TrelloCard[]> {
+      const { id, filter } = params;
+      const endpoint = filter ? `/boards/${id}/cards/${filter}` : `/boards/${id}/cards`;
+      return this.request<TrelloCard[]>(endpoint, 'GET');
+    }
+  
+    async getBoardLists(params: { id: string; filter?: string }): Promise<TrelloList[]> {
+      const { id, filter } = params;
+      const endpoint = filter ? `/boards/${id}/lists/${filter}` : `/boards/${id}/lists`;
+      return this.request<TrelloList[]>(endpoint, 'GET');
+    }
+  
+    async getBoardChecklists(id: string): Promise<any[]> {
+      return this.request<any[]>(`/boards/${id}/checklists`, 'GET');
+    }
+  
+    async getBoardLabels(id: string): Promise<any[]> {
+      return this.request<any[]>(`/boards/${id}/labels`, 'GET');
+    }
+  
+    async addMemberToBoard(params: { id: string; email: string; type?: string; fullName?: string }): Promise<any> {
+      const { id, ...query } = params;
+      return this.request(`/boards/${id}/members`, 'PUT', query, true);
+    }
+  
+    async updateBoardMember(params: { id: string; idMember: string; type?: string }): Promise<any> {
+      const { id, idMember, ...query } = params;
+      return this.request(`/boards/${id}/members/${idMember}`, 'PUT', query, true);
+    }
+  
+    async removeBoardMember(params: { id: string; idMember: string }): Promise<void> {
+      const { id, idMember } = params;
+      await this.request(`/boards/${id}/members/${idMember}`, 'DELETE');
+    }
+  
+    async generateBoardCalendarKey(id: string): Promise<any> {
+      return this.request(`/boards/${id}/calendarKey/generate`, 'POST');
+    }
+  
+    async generateBoardEmailKey(id: string): Promise<any> {
+      return this.request(`/boards/${id}/emailKey/generate`, 'POST');
+    }
+  
+    async markBoardAsViewed(id: string): Promise<any> {
+      return this.request(`/boards/${id}/markedAsViewed`, 'POST');
+    }
+  
+    async updateBoardMyPrefs(params: {
+      id: string;
+      emailPosition?: string;
+      idEmailList?: string;
+      showSidebar?: boolean;
+      showSidebarActivity?: boolean;
+      showSidebarBoardActions?: boolean;
+      showSidebarMembers?: boolean;
+    }): Promise<any> {
+      const { id, ...prefs } = params;
+      const results: any = {};
+      
+      // Update each preference individually as they have separate endpoints
+      if (prefs.emailPosition !== undefined) {
+        results.emailPosition = await this.request(`/boards/${id}/myPrefs/emailPosition`, 'PUT', { value: prefs.emailPosition }, true);
+      }
+      if (prefs.idEmailList !== undefined) {
+        results.idEmailList = await this.request(`/boards/${id}/myPrefs/idEmailList`, 'PUT', { value: prefs.idEmailList }, true);
+      }
+      if (prefs.showSidebar !== undefined) {
+        results.showSidebar = await this.request(`/boards/${id}/myPrefs/showSidebar`, 'PUT', { value: prefs.showSidebar }, true);
+      }
+      if (prefs.showSidebarActivity !== undefined) {
+        results.showSidebarActivity = await this.request(`/boards/${id}/myPrefs/showSidebarActivity`, 'PUT', { value: prefs.showSidebarActivity }, true);
+      }
+      if (prefs.showSidebarBoardActions !== undefined) {
+        results.showSidebarBoardActions = await this.request(`/boards/${id}/myPrefs/showSidebarBoardActions`, 'PUT', { value: prefs.showSidebarBoardActions }, true);
+      }
+      if (prefs.showSidebarMembers !== undefined) {
+        results.showSidebarMembers = await this.request(`/boards/${id}/myPrefs/showSidebarMembers`, 'PUT', { value: prefs.showSidebarMembers }, true);
+      }
+      
+      return results;
+    }
+
 }

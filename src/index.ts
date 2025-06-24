@@ -851,6 +851,540 @@ server.registerTool(
   }
 );
 
+server.registerTool(
+  "get-board-detailed",
+  {
+    title: "Board (detailliert) abrufen",
+    description: "Lädt ein Board mit allen Parametern.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+      actions: z.string().optional(),
+      boardStars: z.string().optional(),
+      cards: z.string().optional(),
+      card_pluginData: z.boolean().optional(),
+      checklists: z.string().optional(),
+      customFields: z.boolean().optional(),
+      fields: z.string().optional(),
+      labels: z.string().optional(),
+      lists: z.string().optional(),
+      members: z.string().optional(),
+      memberships: z.string().optional(),
+      pluginData: z.boolean().optional(),
+      organization: z.boolean().optional(),
+      organization_pluginData: z.boolean().optional(),
+      myPrefs: z.boolean().optional(),
+      tags: z.boolean().optional(),
+    }
+  },
+  async (params) => {
+    console.error(`[get-board-detailed] Input:`, params);
+    try {
+      const board = await trelloClient.getBoardDetailed(params);
+      console.error(`[get-board-detailed] Result:`, board);
+      return {
+        content: [{ type: "text", text: JSON.stringify(board, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[get-board-detailed] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden des Boards: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "update-board",
+  {
+    title: "Board aktualisieren",
+    description: "Aktualisiert ein Board mit beliebigen Feldern.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+      // alle weiteren Felder optional, dynamisch
+      // z.B. name, desc, closed, etc.
+      // Für maximale Flexibilität als Record
+      updates: z.record(z.any())
+    }
+  },
+  async (params) => {
+    console.error(`[update-board] Input:`, params);
+    try {
+      const board = await trelloClient.updateBoard({ id: params.id, ...params.updates });
+      console.error(`[update-board] Result:`, board);
+      return {
+        content: [{ type: "text", text: JSON.stringify(board, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[update-board] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Aktualisieren des Boards: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "delete-board",
+  {
+    title: "Board löschen",
+    description: "Löscht ein Board.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+    }
+  },
+  async (params) => {
+    console.error(`[delete-board] Input:`, params);
+    try {
+      await trelloClient.deleteBoard(params.id);
+      console.error(`[delete-board] Result: Board deleted`);
+      return {
+        content: [{ type: "text", text: `Board gelöscht.` }]
+      };
+    } catch (error) {
+      console.error(`[delete-board] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Löschen des Boards: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "get-board-field",
+  {
+    title: "Einzelnes Board-Feld abrufen",
+    description: "Lädt ein einzelnes Feld eines Boards.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+      field: z.string().min(1, "Feldname ist erforderlich"),
+    }
+  },
+  async (params) => {
+    console.error(`[get-board-field] Input:`, params);
+    try {
+      const value = await trelloClient.getBoardField(params);
+      console.error(`[get-board-field] Result:`, value);
+      return {
+        content: [{ type: "text", text: JSON.stringify(value, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[get-board-field] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden des Feldes: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "get-board-actions",
+  {
+    title: "Board-Aktionen abrufen",
+    description: "Lädt alle Aktionen eines Boards.",
+    inputSchema: {
+      boardId: z.string().min(1, "Board-ID ist erforderlich"),
+      fields: z.string().optional(),
+      filter: z.string().optional(),
+      format: z.string().optional(),
+      idModels: z.string().optional(),
+      limit: z.number().optional(),
+      member: z.boolean().optional(),
+      member_fields: z.string().optional(),
+      memberCreator: z.boolean().optional(),
+      memberCreator_fields: z.string().optional(),
+      page: z.number().optional(),
+      reactions: z.boolean().optional(),
+      before: z.string().optional(),
+      since: z.string().optional(),
+    }
+  },
+  async (params) => {
+    console.error(`[get-board-actions] Input:`, params);
+    try {
+      const actions = await trelloClient.getBoardActions(params);
+      console.error(`[get-board-actions] Result:`, actions);
+      return {
+        content: [{ type: "text", text: JSON.stringify(actions, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[get-board-actions] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden der Aktionen: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "get-board-cards",
+  {
+    title: "Board-Karten abrufen",
+    description: "Lädt alle Karten eines Boards (optional mit Filter).",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+      filter: z.string().optional(),
+    }
+  },
+  async (params) => {
+    console.error(`[get-board-cards] Input:`, params);
+    try {
+      const cards = await trelloClient.getBoardCards(params);
+      console.error(`[get-board-cards] Result:`, cards);
+      return {
+        content: [{ type: "text", text: JSON.stringify(cards, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[get-board-cards] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden der Karten: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "get-board-lists",
+  {
+    title: "Board-Listen abrufen",
+    description: "Lädt alle Listen eines Boards (optional mit Filter).",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+      filter: z.string().optional(),
+    }
+  },
+  async (params) => {
+    console.error(`[get-board-lists] Input:`, params);
+    try {
+      const lists = await trelloClient.getBoardLists(params);
+      console.error(`[get-board-lists] Result:`, lists);
+      return {
+        content: [{ type: "text", text: JSON.stringify(lists, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[get-board-lists] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden der Listen: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "get-board-members",
+  {
+    title: "Board-Mitglieder abrufen",
+    description: "Lädt alle Mitglieder eines Boards.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+    }
+  },
+  async (params) => {
+    console.error(`[get-board-members] Input:`, params);
+    try {
+      const members = await trelloClient.getBoardMembers(params.id);
+      console.error(`[get-board-members] Result:`, members);
+      return {
+        content: [{ type: "text", text: JSON.stringify(members, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[get-board-members] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden der Mitglieder: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "get-board-checklists",
+  {
+    title: "Board-Checklisten abrufen",
+    description: "Lädt alle Checklisten eines Boards.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+    }
+  },
+  async (params) => {
+    console.error(`[get-board-checklists] Input:`, params);
+    try {
+      const checklists = await trelloClient.getBoardChecklists(params.id);
+      console.error(`[get-board-checklists] Result:`, checklists);
+      return {
+        content: [{ type: "text", text: JSON.stringify(checklists, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[get-board-checklists] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden der Checklisten: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "get-board-labels",
+  {
+    title: "Board-Labels abrufen",
+    description: "Lädt alle Labels eines Boards.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+    }
+  },
+  async (params) => {
+    console.error(`[get-board-labels] Input:`, params);
+    try {
+      const labels = await trelloClient.getBoardLabels(params.id);
+      console.error(`[get-board-labels] Result:`, labels);
+      return {
+        content: [{ type: "text", text: JSON.stringify(labels, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[get-board-labels] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden der Labels: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "add-member-to-board",
+  {
+    title: "Mitglied zu Board hinzufügen",
+    description: "Fügt ein Mitglied zu einem Board hinzu.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+      email: z.string().min(1, "E-Mail ist erforderlich"),
+      type: z.string().optional(),
+      fullName: z.string().optional(),
+    }
+  },
+  async (params) => {
+    console.error(`[add-member-to-board] Input:`, params);
+    try {
+      const result = await trelloClient.addMemberToBoard(params);
+      console.error(`[add-member-to-board] Result:`, result);
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[add-member-to-board] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Hinzufügen des Mitglieds: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "update-board-member",
+  {
+    title: "Board-Mitglied aktualisieren",
+    description: "Aktualisiert ein Mitglied eines Boards.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+      idMember: z.string().min(1, "Mitglieds-ID ist erforderlich"),
+      type: z.string().optional(),
+    }
+  },
+  async (params) => {
+    console.error(`[update-board-member] Input:`, params);
+    try {
+      const result = await trelloClient.updateBoardMember(params);
+      console.error(`[update-board-member] Result:`, result);
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[update-board-member] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Aktualisieren des Mitglieds: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "remove-board-member",
+  {
+    title: "Mitglied von Board entfernen",
+    description: "Entfernt ein Mitglied von einem Board.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+      idMember: z.string().min(1, "Mitglieds-ID ist erforderlich"),
+    }
+  },
+  async (params) => {
+    console.error(`[remove-board-member] Input:`, params);
+    try {
+      await trelloClient.removeBoardMember(params);
+      console.error(`[remove-board-member] Result: Mitglied entfernt`);
+      return {
+        content: [{ type: "text", text: `Mitglied entfernt.` }]
+      };
+    } catch (error) {
+      console.error(`[remove-board-member] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Entfernen des Mitglieds: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "generate-board-calendar-key",
+  {
+    title: "Board-Kalender-Key generieren",
+    description: "Generiert einen Kalender-Key für ein Board.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+    }
+  },
+  async (params) => {
+    console.error(`[generate-board-calendar-key] Input:`, params);
+    try {
+      const result = await trelloClient.generateBoardCalendarKey(params.id);
+      console.error(`[generate-board-calendar-key] Result:`, result);
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[generate-board-calendar-key] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Generieren des Kalender-Keys: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "generate-board-email-key",
+  {
+    title: "Board-E-Mail-Key generieren",
+    description: "Generiert einen E-Mail-Key für ein Board.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+    }
+  },
+  async (params) => {
+    console.error(`[generate-board-email-key] Input:`, params);
+    try {
+      const result = await trelloClient.generateBoardEmailKey(params.id);
+      console.error(`[generate-board-email-key] Result:`, result);
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[generate-board-email-key] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Generieren des E-Mail-Keys: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "mark-board-as-viewed",
+  {
+    title: "Board als angesehen markieren",
+    description: "Markiert ein Board als angesehen.",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+    }
+  },
+  async (params) => {
+    console.error(`[mark-board-as-viewed] Input:`, params);
+    try {
+      const result = await trelloClient.markBoardAsViewed(params.id);
+      console.error(`[mark-board-as-viewed] Result:`, result);
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[mark-board-as-viewed] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Markieren als angesehen: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "update-board-my-prefs",
+  {
+    title: "Board-MyPrefs aktualisieren",
+    description: "Aktualisiert die MyPrefs eines Boards (Sidebar, E-Mail, etc.).",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+      emailPosition: z.string().optional(),
+      idEmailList: z.string().optional(),
+      showSidebar: z.boolean().optional(),
+      showSidebarActivity: z.boolean().optional(),
+      showSidebarBoardActions: z.boolean().optional(),
+      showSidebarMembers: z.boolean().optional(),
+    }
+  },
+  async (params) => {
+    console.error(`[update-board-my-prefs] Input:`, params);
+    try {
+      const result = await trelloClient.updateBoardMyPrefs(params);
+      console.error(`[update-board-my-prefs] Result:`, result);
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[update-board-my-prefs] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Aktualisieren der MyPrefs: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "get-board",
+  {
+    title: "Board abrufen (einfach)",
+    description: "Lädt ein Board nur anhand der ID (ohne Zusatzparameter).",
+    inputSchema: {
+      id: z.string().min(1, "Board-ID ist erforderlich"),
+    }
+  },
+  async (params) => {
+    console.error(`[get-board] Input:`, params);
+    try {
+      const board = await trelloClient.getBoard(params.id);
+      console.error(`[get-board] Result:`, board);
+      return {
+        content: [{ type: "text", text: JSON.stringify(board, null, 2) }]
+      };
+    } catch (error) {
+      console.error(`[get-board] Error:`, error);
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden des Boards: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
 // Server starten
 async function main() {
   try {
