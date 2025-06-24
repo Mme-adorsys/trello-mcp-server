@@ -1,0 +1,34 @@
+{
+  "name": "trello-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Trello integration",
+  "main": "build/index.js",
+  "type": "module",
+  "bin": {
+    "trello-mcp-server": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod +x build/index.js",
+    "watch": "tsc --watch",
+    "start": "node build/index.js",
+    "dev": "npm run build && npm start"
+  },
+  "keywords": [
+    "mcp",
+    "trello",
+    "model-context-protocol"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/inspector": "github:modelcontextprotocol/inspector",
+    "@modelcontextprotocol/sdk": "^1.13.1",
+    "dotenv": "^16.5.0",
+    "node-fetch": "^3.3.2",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  }
+}
