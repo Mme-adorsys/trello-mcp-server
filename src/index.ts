@@ -456,34 +456,12 @@ server.registerTool(
     inputSchema: { cardId: z.string().min(1), fieldId: z.string().min(1), value: z.any() }
   },
   async ({ cardId, fieldId, value }) => {
-    const result = await trelloClient.setCardCustomField(cardId, fieldId, value);
-    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-  }
-);
-
-// Card Custom Fields
-server.registerTool(
-  "get-card-custom-fields",
-  {
-    title: "Custom Fields einer Karte abrufen",
-    description: "Lädt alle Custom Field Werte einer Karte.",
-    inputSchema: { cardId: z.string().min(1) }
-  },
-  async ({ cardId }) => {
-    const items = await trelloClient.getCardCustomFieldItems(cardId);
-    return { content: [{ type: "text", text: JSON.stringify(items, null, 2) }] };
-  }
-);
-
-server.registerTool(
-  "set-card-custom-field",
-  {
-    title: "Custom Field einer Karte setzen",
-    description: "Setzt einen Wert für ein Custom Field einer Karte.",
-    inputSchema: { cardId: z.string().min(1), fieldId: z.string().min(1), value: z.any() }
-  },
-  async ({ cardId, fieldId, value }) => {
-    const result = await trelloClient.setCardCustomField(cardId, fieldId, value);
+    // If value is a string, wrap it as { text: value } for text fields
+    let wrappedValue = value;
+    if (typeof value === 'string') {
+      wrappedValue = { text: value };
+    }
+    const result = await trelloClient.setCardCustomField(cardId, fieldId, wrappedValue);
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   }
 );
@@ -1050,6 +1028,21 @@ server.registerResource(
   }
 );
 
+server.registerTool(
+  "boards",
+  {
+    title: "Alle Boards abrufen",
+    description: "Lädt alle Boards des aktuellen Members (Users).",
+    inputSchema: {}
+  },
+  async () => {
+    console.error("Starte getBoards...");
+    const boards = await trelloClient.getBoards();
+    console.error("Boards geladen:", boards.length);
+    return { content: [{ type: "text", text: JSON.stringify(boards, null, 2) }] };
+  }
+);
+
 // Board Details Resource
 server.registerResource(
   "board-details",
@@ -1565,7 +1558,7 @@ server.registerTool(
   async (params) => {
     console.error(`[get-list-cards] Input:`, params);
     try {
-      const cards = await trelloClient.getListCards(params);
+      const cards = await trelloClient.getListCards(params.id);
       console.error(`[get-list-cards] Result:`, cards);
       return {
         content: [{ type: "text", text: JSON.stringify(cards, null, 2) }]
@@ -2111,6 +2104,47 @@ server.registerTool(
         isError: true
       };
     }
+  }
+);
+
+server.registerTool(
+  "get-next-actions-prompt",
+  {
+    title: "Prompt-Feld der ersten Karte in 'next-actions' abrufen",
+    description: "Findet das erste Board, dessen Name den Filtertext enthält, sucht die Liste 'next-actions', nimmt die erste Karte und gibt den Inhalt des Custom Fields 'Prompt' zurück.",
+    inputSchema: {
+      boardNameFilter: z.string().min(1, "Filtertext für Board-Name ist erforderlich")
+    }
+  },
+  async ({ boardNameFilter }) => {
+    // 1. Find board
+    const boards = await trelloClient.getBoards('open', 'id,name');
+    const board = boards.find(b => b.name.toLowerCase().includes(boardNameFilter.toLowerCase()));
+    if (!board) throw new Error(`Kein Board mit Name, der '${boardNameFilter}' enthält, gefunden.`);
+
+    // 2. Find 'next-actions' list
+    const lists = await trelloClient.getLists(board.id, 'none', 'id,name');
+    const list = lists.find(l => l.name.toLowerCase().includes('next actions'));
+    if (!list) throw new Error(`Keine Liste 'next-actions' auf Board '${board.name}' gefunden.`);
+
+    // 3. Get first card in list
+    const cards = await trelloClient.getListCards(list.id, 'id');
+    if (!cards.length) throw new Error(`Keine Karten in Liste 'next-actions' auf Board '${board.name}' gefunden.`);
+    const card = cards[0];
+
+    // 4. Get custom field definitions for board
+    const customFields = await trelloClient.getBoardCustomFields(board.id);
+    const promptField = customFields.find(f => f.name === 'Prompt');
+    if (!promptField) throw new Error(`Custom Field 'Prompt' auf Board '${board.name}' nicht gefunden.`);
+
+    // 5. Get custom field items for card
+    const fieldItems = await trelloClient.getCardCustomFieldItems(card.id);
+    const promptItem = fieldItems.find(item => item.idCustomField === promptField.id);
+    if (!promptItem || !promptItem.value || typeof promptItem.value.text !== 'string') {
+      throw new Error(`Kein Wert für Custom Field 'Prompt' auf der ersten Karte in 'next-actions' gefunden.`);
+    }
+
+    return { content: [{ type: "text", text: promptItem.value.text }] };
   }
 );
 

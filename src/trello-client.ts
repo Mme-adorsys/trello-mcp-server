@@ -164,8 +164,8 @@ export class TrelloClient {
   }
 
   // Board Management
-  async getBoards(): Promise<TrelloBoard[]> {
-    return this.request<TrelloBoard[]>('/members/me/boards');
+  async getBoards(filter: 'open' | 'closed' | 'all' = 'open', fields: string = 'all'): Promise<TrelloBoard[]> {
+    return this.request<TrelloBoard[]>(`/members/me/boards?filter=${filter}&fields=${fields}`);
   }
 
   async getBoard(boardId: string): Promise<TrelloBoard> {
@@ -181,8 +181,8 @@ export class TrelloClient {
   }
 
   // List Management
-  async getLists(boardId: string): Promise<TrelloList[]> {
-    return this.request<TrelloList[]>(`/boards/${boardId}/lists`);
+  async getLists(boardId: string, cards: 'all' | 'none' = 'none', fields: string = ''): Promise<TrelloList[]> {
+    return this.request<TrelloList[]>(`/boards/${boardId}/lists?cards=${cards}&fields=${fields}`);
   }
 
   async closeList(listId: string): Promise<TrelloList> {
@@ -238,9 +238,8 @@ export class TrelloClient {
     return this.request<any>(`/lists/${id}/board`, 'GET', query, true);
   }
 
-  async getListCards(params: { id: string }): Promise<TrelloCard[]> {
-    const { id } = params;
-    return this.request<TrelloCard[]>(`/lists/${id}/cards`, 'GET');
+  async getListCards(id: string, fields: string = 'all' ): Promise<TrelloCard[]> {
+    return this.request<TrelloCard[]>(`/lists/${id}/cards?fields=${fields}`, 'GET');
   }
 
   // Card Management
@@ -489,6 +488,7 @@ export class TrelloClient {
   async getCardCustomFieldItems(cardId: string): Promise<any[]> {
     return this.request<any[]>(`/cards/${cardId}/customFieldItems`, 'GET');
   }
+  
   async setCardCustomField(cardId: string, fieldId: string, value: any): Promise<any> {
     return this.request<any>(`/cards/${cardId}/customField/${fieldId}/item`, 'PUT', { value });
   }
