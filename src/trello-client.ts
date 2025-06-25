@@ -538,6 +538,55 @@ export class TrelloClient {
     return this.request<any>(`/cards/${cardId}/membersVoted`, value ? 'POST' : 'DELETE');
   }
 
+  // NEW: Missing CustomFields methods
+  async getBoardCustomFields(boardId: string): Promise<any[]> {
+    return this.request<any[]>(`/boards/${boardId}/customFields`, 'GET');
+  }
+
+  async createCustomField(params: {
+    idModel: string;
+    modelType: 'board';
+    name: string;
+    type: 'checkbox' | 'list' | 'number' | 'text' | 'date';
+    options?: string;
+    pos: string | number;
+    display_cardFront?: boolean;
+  }): Promise<any> {
+    return this.request<any>(`/customFields`, 'POST', params);
+  }
+
+  async getCustomField(customFieldId: string): Promise<any> {
+    return this.request<any>(`/customFields/${customFieldId}`, 'GET');
+  }
+
+  async updateCustomField(customFieldId: string, params: {
+    name?: string;
+    pos?: string | number;
+    'display/cardFront'?: boolean;
+  }): Promise<any> {
+    return this.request<any>(`/customFields/${customFieldId}`, 'PUT', params);
+  }
+
+  async deleteCustomField(customFieldId: string): Promise<void> {
+    await this.request(`/customFields/${customFieldId}`, 'DELETE');
+  }
+
+  async getCustomFieldOptions(customFieldId: string): Promise<any[]> {
+    return this.request<any[]>(`/customFields/${customFieldId}/options`, 'GET');
+  }
+
+  async addCustomFieldOption(customFieldId: string): Promise<any> {
+    return this.request<any>(`/customFields/${customFieldId}/options`, 'POST');
+  }
+
+  async getCustomFieldOption(customFieldId: string, optionId: string): Promise<any> {
+    return this.request<any>(`/customFields/${customFieldId}/options/${optionId}`, 'GET');
+  }
+
+  async deleteCustomFieldOption(customFieldId: string, optionId: string): Promise<void> {
+    await this.request(`/customFields/${customFieldId}/options/${optionId}`, 'DELETE');
+  }
+
   // --- Board/Org Automation Features ---
 
   // Webhooks

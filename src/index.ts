@@ -7,6 +7,10 @@ import { TrelloClient } from "./trello-client.js";
 import { Variables } from "@modelcontextprotocol/sdk/shared/uriTemplate.js";
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 
+import dotenv from "dotenv";
+
+dotenv.config();
+
 // Umgebungsvariablen validieren
 const TRELLO_API_KEY = process.env.TRELLO_API_KEY;
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
@@ -456,6 +460,247 @@ server.registerTool(
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   }
 );
+
+// Card Custom Fields
+server.registerTool(
+  "get-card-custom-fields",
+  {
+    title: "Custom Fields einer Karte abrufen",
+    description: "Lädt alle Custom Field Werte einer Karte.",
+    inputSchema: { cardId: z.string().min(1) }
+  },
+  async ({ cardId }) => {
+    const items = await trelloClient.getCardCustomFieldItems(cardId);
+    return { content: [{ type: "text", text: JSON.stringify(items, null, 2) }] };
+  }
+);
+
+server.registerTool(
+  "set-card-custom-field",
+  {
+    title: "Custom Field einer Karte setzen",
+    description: "Setzt einen Wert für ein Custom Field einer Karte.",
+    inputSchema: { cardId: z.string().min(1), fieldId: z.string().min(1), value: z.any() }
+  },
+  async ({ cardId, fieldId, value }) => {
+    const result = await trelloClient.setCardCustomField(cardId, fieldId, value);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+// NEW: Board Custom Fields Management
+server.registerTool(
+  "get-board-custom-fields",
+  {
+    title: "Board Custom Fields abrufen",
+    description: "Lädt alle Custom Field Definitionen eines Boards.",
+    inputSchema: { boardId: z.string().min(1) }
+  },
+  async ({ boardId }) => {
+    try {
+      const customFields = await trelloClient.getBoardCustomFields(boardId);
+      return { content: [{ type: "text", text: JSON.stringify(customFields, null, 2) }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden der Custom Fields: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "create-custom-field",
+  {
+    title: "Custom Field erstellen",
+    description: "Erstellt ein neues Custom Field auf einem Board.",
+    inputSchema: {
+      boardId: z.string().min(1, "Board ID ist erforderlich"),
+      name: z.string().min(1, "Name ist erforderlich"),
+      type: z.enum(["checkbox", "list", "number", "text", "date"], { required_error: "Typ muss einer von: checkbox, list, number, text, date sein" }),
+      position: z.union([z.string(), z.number()]).optional(),
+      options: z.string().optional(),
+      displayOnCardFront: z.boolean().optional()
+    }
+  },
+  async ({ boardId, name, type, position, options, displayOnCardFront }) => {
+    try {
+      const customField = await trelloClient.createCustomField({
+        idModel: boardId,
+        modelType: 'board',
+        name,
+        type,
+        pos: position || 'bottom',
+        options,
+        display_cardFront: displayOnCardFront
+      });
+      return { content: [{ type: "text", text: `Custom Field "${name}" erfolgreich erstellt!\n${JSON.stringify(customField, null, 2)}` }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Fehler beim Erstellen des Custom Fields: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "get-custom-field",
+  {
+    title: "Custom Field abrufen",
+    description: "Lädt die Details eines Custom Fields.",
+    inputSchema: { customFieldId: z.string().min(1) }
+  },
+  async ({ customFieldId }) => {
+    try {
+      const customField = await trelloClient.getCustomField(customFieldId);
+      return { content: [{ type: "text", text: JSON.stringify(customField, null, 2) }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden des Custom Fields: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "update-custom-field",
+  {
+    title: "Custom Field aktualisieren",
+    description: "Aktualisiert ein Custom Field (Name, Position, Anzeige auf Karten).",
+    inputSchema: {
+      customFieldId: z.string().min(1),
+      name: z.string().optional(),
+      position: z.union([z.string(), z.number()]).optional(),
+      displayOnCardFront: z.boolean().optional()
+    }
+  },
+  async ({ customFieldId, name, position, displayOnCardFront }) => {
+    try {
+      const params: any = {};
+      if (name) params.name = name;
+      if (position !== undefined) params.pos = position;
+      if (displayOnCardFront !== undefined) params['display/cardFront'] = displayOnCardFront;
+
+      const customField = await trelloClient.updateCustomField(customFieldId, params);
+      return { content: [{ type: "text", text: `Custom Field erfolgreich aktualisiert!\n${JSON.stringify(customField, null, 2)}` }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Fehler beim Aktualisieren des Custom Fields: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "delete-custom-field",
+  {
+    title: "Custom Field löschen",
+    description: "Löscht ein Custom Field von einem Board.",
+    inputSchema: { customFieldId: z.string().min(1) }
+  },
+  async ({ customFieldId }) => {
+    try {
+      await trelloClient.deleteCustomField(customFieldId);
+      return { content: [{ type: "text", text: "Custom Field erfolgreich gelöscht." }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Fehler beim Löschen des Custom Fields: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+// Custom Field Options (for dropdown/list type fields)
+server.registerTool(
+  "get-custom-field-options",
+  {
+    title: "Custom Field Optionen abrufen",
+    description: "Lädt alle Optionen eines Dropdown Custom Fields.",
+    inputSchema: { customFieldId: z.string().min(1) }
+  },
+  async ({ customFieldId }) => {
+    try {
+      const options = await trelloClient.getCustomFieldOptions(customFieldId);
+      return { content: [{ type: "text", text: JSON.stringify(options, null, 2) }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden der Custom Field Optionen: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "add-custom-field-option",
+  {
+    title: "Custom Field Option hinzufügen",
+    description: "Fügt eine neue Option zu einem Dropdown Custom Field hinzu.",
+    inputSchema: { customFieldId: z.string().min(1) }
+  },
+  async ({ customFieldId }) => {
+    try {
+      const option = await trelloClient.addCustomFieldOption(customFieldId);
+      return { content: [{ type: "text", text: JSON.stringify(option, null, 2) }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Fehler beim Hinzufügen der Custom Field Option: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "get-custom-field-option",
+  {
+    title: "Custom Field Option abrufen",
+    description: "Lädt Details einer spezifischen Custom Field Option.",
+    inputSchema: { 
+      customFieldId: z.string().min(1),
+      optionId: z.string().min(1)
+    }
+  },
+  async ({ customFieldId, optionId }) => {
+    try {
+      const option = await trelloClient.getCustomFieldOption(customFieldId, optionId);
+      return { content: [{ type: "text", text: JSON.stringify(option, null, 2) }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Fehler beim Laden der Custom Field Option: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
+server.registerTool(
+  "delete-custom-field-option",
+  {
+    title: "Custom Field Option löschen",
+    description: "Löscht eine Option von einem Dropdown Custom Field.",
+    inputSchema: { 
+      customFieldId: z.string().min(1),
+      optionId: z.string().min(1)
+    }
+  },
+  async ({ customFieldId, optionId }) => {
+    try {
+      await trelloClient.deleteCustomFieldOption(customFieldId, optionId);
+      return { content: [{ type: "text", text: "Custom Field Option erfolgreich gelöscht." }] };
+    } catch (error) {
+      return {
+        content: [{ type: "text", text: `Fehler beim Löschen der Custom Field Option: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}` }],
+        isError: true
+      };
+    }
+  }
+);
+
 
 // Card Labels
 server.registerTool(
