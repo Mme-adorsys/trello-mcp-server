@@ -619,6 +619,159 @@ server.registerTool(
   }
 );
 
+// --- Board/Org Automation Tools ---
+
+// Webhooks
+server.registerTool(
+  "get-webhooks",
+  {
+    title: "Webhooks abrufen",
+    description: "Lädt alle Webhooks des Benutzers.",
+    inputSchema: {}
+  },
+  async () => {
+    const webhooks = await trelloClient.getWebhooks();
+    return { content: [{ type: "text", text: JSON.stringify(webhooks, null, 2) }] };
+  }
+);
+server.registerTool(
+  "create-webhook",
+  {
+    title: "Webhook erstellen",
+    description: "Erstellt einen neuen Webhook.",
+    inputSchema: { callbackURL: z.string().url(), idModel: z.string().min(1), description: z.string().optional() }
+  },
+  async ({ callbackURL, idModel, description }) => {
+    const webhook = await trelloClient.createWebhook(callbackURL, idModel, description);
+    return { content: [{ type: "text", text: JSON.stringify(webhook, null, 2) }] };
+  }
+);
+server.registerTool(
+  "update-webhook",
+  {
+    title: "Webhook aktualisieren",
+    description: "Aktualisiert einen bestehenden Webhook.",
+    inputSchema: { webhookId: z.string().min(1), callbackURL: z.string().url().optional(), description: z.string().optional(), idModel: z.string().optional() }
+  },
+  async ({ webhookId, callbackURL, description, idModel }) => {
+    const updates: any = {};
+    if (callbackURL) updates.callbackURL = callbackURL;
+    if (description) updates.description = description;
+    if (idModel) updates.idModel = idModel;
+    const webhook = await trelloClient.updateWebhook(webhookId, updates);
+    return { content: [{ type: "text", text: JSON.stringify(webhook, null, 2) }] };
+  }
+);
+server.registerTool(
+  "delete-webhook",
+  {
+    title: "Webhook löschen",
+    description: "Löscht einen Webhook.",
+    inputSchema: { webhookId: z.string().min(1) }
+  },
+  async ({ webhookId }) => {
+    await trelloClient.deleteWebhook(webhookId);
+    return { content: [{ type: "text", text: "Webhook gelöscht." }] };
+  }
+);
+
+// Search
+server.registerTool(
+  "search-trello",
+  {
+    title: "Trello durchsuchen",
+    description: "Durchsucht Trello nach Karten, Boards, Mitgliedern, etc.",
+    inputSchema: {
+      query: z.string().min(1),
+      modelTypes: z.array(z.string()).optional(),
+      idBoards: z.array(z.string()).optional(),
+      idOrganizations: z.array(z.string()).optional()
+    }
+  },
+  async ({ query, modelTypes, idBoards, idOrganizations }) => {
+    const result = await trelloClient.search(query, modelTypes, idBoards, idOrganizations);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+// Batch API
+server.registerTool(
+  "batch-trello",
+  {
+    title: "Batch-API aufrufen",
+    description: "Führt mehrere Trello-API-Aufrufe in einem Batch aus.",
+    inputSchema: { urls: z.array(z.string().min(1)).min(1) }
+  },
+  async ({ urls }) => {
+    const result = await trelloClient.batch(urls);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+// Board/Org Invitations
+server.registerTool(
+  "invite-to-board",
+  {
+    title: "Mitglied zu Board einladen",
+    description: "Lädt ein Mitglied per E-Mail zu einem Board ein.",
+    inputSchema: { boardId: z.string().min(1), email: z.string().email(), fullName: z.string().optional(), type: z.string().optional() }
+  },
+  async ({ boardId, email, fullName, type }) => {
+    const result = await trelloClient.inviteToBoard(boardId, email, fullName, type);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+);
+server.registerTool(
+  "invite-to-organization",
+  {
+    title: "Mitglied zu Organisation einladen",
+    description: "Lädt ein Mitglied per E-Mail zu einer Organisation ein.",
+    inputSchema: { orgId: z.string().min(1), email: z.string().email(), fullName: z.string().optional(), type: z.string().optional() }
+  },
+  async ({ orgId, email, fullName, type }) => {
+    const result = await trelloClient.inviteToOrganization(orgId, email, fullName, type);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+// Power-Ups
+server.registerTool(
+  "get-board-powerups",
+  {
+    title: "Power-Ups eines Boards abrufen",
+    description: "Lädt alle Power-Ups eines Boards.",
+    inputSchema: { boardId: z.string().min(1) }
+  },
+  async ({ boardId }) => {
+    const powerUps = await trelloClient.getBoardPowerUps(boardId);
+    return { content: [{ type: "text", text: JSON.stringify(powerUps, null, 2) }] };
+  }
+);
+server.registerTool(
+  "enable-board-powerup",
+  {
+    title: "Power-Up aktivieren",
+    description: "Aktiviert ein Power-Up auf einem Board.",
+    inputSchema: { boardId: z.string().min(1), powerUp: z.string().min(1) }
+  },
+  async ({ boardId, powerUp }) => {
+    const result = await trelloClient.enableBoardPowerUp(boardId, powerUp);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+);
+server.registerTool(
+  "disable-board-powerup",
+  {
+    title: "Power-Up deaktivieren",
+    description: "Deaktiviert ein Power-Up auf einem Board.",
+    inputSchema: { boardId: z.string().min(1), powerUp: z.string().min(1) }
+  },
+  async ({ boardId, powerUp }) => {
+    await trelloClient.disableBoardPowerUp(boardId, powerUp);
+    return { content: [{ type: "text", text: "Power-Up deaktiviert." }] };
+  }
+);
+
 // RESOURCES - Application-controlled data
 
 // Boards Resource

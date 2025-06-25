@@ -537,4 +537,53 @@ export class TrelloClient {
   async voteOnCard(cardId: string, value: boolean): Promise<any> {
     return this.request<any>(`/cards/${cardId}/membersVoted`, value ? 'POST' : 'DELETE');
   }
+
+  // --- Board/Org Automation Features ---
+
+  // Webhooks
+  async getWebhooks(): Promise<any[]> {
+    return this.request<any[]>(`/webhooks`, 'GET');
+  }
+  async createWebhook(callbackURL: string, idModel: string, description?: string): Promise<any> {
+    return this.request<any>(`/webhooks`, 'POST', { callbackURL, idModel, description });
+  }
+  async updateWebhook(webhookId: string, updates: { callbackURL?: string; description?: string; idModel?: string }): Promise<any> {
+    return this.request<any>(`/webhooks/${webhookId}`, 'PUT', updates);
+  }
+  async deleteWebhook(webhookId: string): Promise<void> {
+    await this.request(`/webhooks/${webhookId}`, 'DELETE');
+  }
+
+  // Search
+  async search(query: string, modelTypes?: string[], idBoards?: string[], idOrganizations?: string[]): Promise<any> {
+    const params: any = { query };
+    if (modelTypes) params.modelTypes = modelTypes.join(',');
+    if (idBoards) params.idBoards = idBoards.join(',');
+    if (idOrganizations) params.idOrganizations = idOrganizations.join(',');
+    return this.request<any>(`/search`, 'GET', params, true);
+  }
+
+  // Batch API
+  async batch(urls: string[]): Promise<any[]> {
+    return this.request<any[]>(`/batch`, 'GET', { urls: urls.join(',') }, true);
+  }
+
+  // Board/Org Invitations
+  async inviteToBoard(boardId: string, email: string, fullName?: string, type?: string): Promise<any> {
+    return this.request<any>(`/boards/${boardId}/members`, 'PUT', { email, fullName, type });
+  }
+  async inviteToOrganization(orgId: string, email: string, fullName?: string, type?: string): Promise<any> {
+    return this.request<any>(`/organizations/${orgId}/members`, 'PUT', { email, fullName, type });
+  }
+
+  // Power-Ups
+  async getBoardPowerUps(boardId: string): Promise<any[]> {
+    return this.request<any[]>(`/boards/${boardId}/powerUps`, 'GET');
+  }
+  async enableBoardPowerUp(boardId: string, powerUp: string): Promise<any> {
+    return this.request<any>(`/boards/${boardId}/powerUps`, 'POST', { value: powerUp });
+  }
+  async disableBoardPowerUp(boardId: string, powerUp: string): Promise<void> {
+    await this.request(`/boards/${boardId}/powerUps/${powerUp}`, 'DELETE');
+  }
 }
