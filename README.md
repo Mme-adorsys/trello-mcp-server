@@ -120,6 +120,53 @@ npm start
 
 Siehe die [Trello API Documentation](https://developer.atlassian.com/cloud/trello/rest/api-group-actions/) für Details zu den verfügbaren Aktionen.
 
-## Lizenz
+MIT```
 
-MIT
+## Build-Skripte und Installation
+
+Installieren Sie die Dependencies:
+
+```bash
+npm install
+```
+
+Erstellen Sie eine `.env` Datei basierend auf dem `.env.example`:
+
+```bash
+cp .env.example .env
+# Bearbeiten Sie die .env Datei mit Ihren Trello API Credentials
+```
+
+Bauen Sie das Projekt:
+
+```bash
+npm run build
+```
+
+## Trello API Setup
+
+1. Gehen Sie zu https://trello.com/app-key
+2. Kopieren Sie Ihren API Key
+3. Klicken Sie auf "Token" um einen Token zu generieren
+4. Fügen Sie beide Werte in Ihre `.env` Datei ein
+
+## Testen des Servers
+
+Sie können den Server testen mit:
+
+```bash
+npm start
+```
+
+Oder für die Integration mit Claude Desktop, fügen Sie die Konfiguration zu Ihrer `claude_desktop_config.json` hinzu.
+
+Dieser Trello MCP Server bietet:
+
+- **Vollständige Trello Integration** mit allen wichtigen Funktionen
+- **Typsichere API** mit Zod Validierung
+- **Umfassende Fehlerbehandlung**
+- **Modulare Struktur** für einfache Erweiterung
+- **Deutsche Lokalisierung** für bessere UX
+- **Praktische Prompts** für häufige Trello-Workflows
+
+Der Server ist ready-to-use und kann sofort mit Trello-Accounts verwendet werden!
