@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "neo4j": {
+      "command": "/Users/marcelmeyer/.local/bin/uvx",
+      "args": [
+        "mcp-neo4j-cypher",
+        "--db-url",
+        "bolt://adorsys.meeting-mate.de",
+        "--username",
+        "neo4j",
+        "--password",
+        "DatevPitchA1"
+      ]
+    },
+    "trello": {
+      "command": "node",
+      "args": [
+        "path/to/trello/mcp/build/index.js"
+      ],
+      "env": {
+        "TRELLO_API_KEY": "",
+        "TRELLO_TOKEN": "",
+        "TRELLO_TIMEOUT": "30000",
+        "TRELLO_RETRIES": "3",
+        "TRELLO_VERBOSE_LOGGING": "false"
+      }
+    }
+  }
+}

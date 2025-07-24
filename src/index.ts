@@ -25,6 +25,9 @@ if (!TRELLO_API_KEY || !TRELLO_TOKEN) {
 const trelloClient = new TrelloClient({
     apiKey: TRELLO_API_KEY,
     token: TRELLO_TOKEN,
+    timeout: parseInt(process.env.TRELLO_TIMEOUT || '30000'),
+    retries: parseInt(process.env.TRELLO_RETRIES || '3'),
+    verboseLogging: process.env.TRELLO_VERBOSE_LOGGING === 'true',
 });
 
 // MCP Server erstellen
@@ -1197,7 +1200,7 @@ server.registerPrompt(
                 type: "text",
                 text: `
         Pre-Implementation: 
-        1.from trello get-next-actions-card with boardFilterName=GTD and move it to the list 'In Progress'
+        1. from trello get-next-actions-card with boardFilterName=GTD and move it to the list 'In Progress'
         2. for this card get-next-actions-prompt
         3. analyse the prompt, make a todo list with a plan to implement the task according to prompt
          
@@ -2293,6 +2296,45 @@ server.registerTool(
         try {
             const board = await trelloClient.getBoard(params.id);
             console.error(`[get-board] Result:`, board);
+            return {
+                content: [{type: "text", text: JSON.stringify(board, null, 2)}]
+            };
+        } catch (error) {
+            console.error(`[get-board] Error:`, error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Fehler beim Laden des Boards: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`
+                }],
+                isError: true
+            };
+        }
+    }
+);
+
+server.registerTool(
+    "find-board-by-name",
+    {
+        title: "Finde ein Board anhand eines Namens",
+        description: "Lädt ein Board nur anhand des Name (ohne Zusatzparameter).",
+        inputSchema: {
+            name: z.string().min(1, "Board-Name ist erforderlich"),
+        }
+    },
+    async (params) => {
+        console.error(`[get-board] Input:`, params);
+        try {
+            const boards = await trelloClient.getBoards("open");
+            console.error(`[get-board] Result:`, boards);
+
+            let trelloBoards = boards.filter(value => value.name === params.name);
+
+            if(!trelloBoards || trelloBoards.length === 0) {
+                console.log(`board mit den Name nicht gefunden, es sind nur folgenede boards verfügbar`, boards.map(value => value.name));
+            }
+
+            const board = trelloBoards.at(0);
+
             return {
                 content: [{type: "text", text: JSON.stringify(board, null, 2)}]
             };

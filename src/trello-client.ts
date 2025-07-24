@@ -3,6 +3,9 @@ import fetch from 'node-fetch';
 interface TrelloConfig {
   apiKey: string;
   token: string;
+  timeout?: number; // Request timeout in milliseconds (default: 30000)
+  retries?: number; // Number of retry attempts (default: 3)
+  verboseLogging?: boolean; // Enable detailed logging (default: false)
 }
 
 interface TrelloBoard {
@@ -118,21 +121,39 @@ function toQueryParams(options: Record<string, any>): string {
 export class TrelloClient {
   private config: TrelloConfig;
   private baseUrl = 'https://api.trello.com/1';
+  private readonly timeout: number;
+  private readonly retries: number;
+  private readonly verboseLogging: boolean;
 
   constructor(config: TrelloConfig) {
     this.config = config;
+    this.timeout = config.timeout || parseInt(process.env.TRELLO_TIMEOUT || '30000');
+    this.retries = config.retries || parseInt(process.env.TRELLO_RETRIES || '3');
+    this.verboseLogging = config.verboseLogging ?? (process.env.TRELLO_VERBOSE_LOGGING === 'true');
   }
 
   private async request<T>(endpoint: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET', bodyOrParams?: any, asQueryParams = false): Promise<T> {
+    return this.requestWithRetry(endpoint, method, bodyOrParams, asQueryParams, this.retries);
+  }
+
+  private async requestWithRetry<T>(endpoint: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', bodyOrParams?: any, asQueryParams = false, retriesLeft = 0): Promise<T> {
+    const startTime = Date.now();
     let url = new URL(`${this.baseUrl}${endpoint}`);
     url.searchParams.append('key', this.config.apiKey);
     url.searchParams.append('token', this.config.token);
+    
+    // Setup AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    
     let fetchOptions: any = {
       method,
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: controller.signal,
     };
+    
     if (bodyOrParams) {
       if (asQueryParams) {
         const query = toQueryParams(bodyOrParams);
@@ -143,24 +164,97 @@ export class TrelloClient {
         fetchOptions.body = JSON.stringify(bodyOrParams);
       }
     }
-    // Detailed logging
-    console.error(`[TrelloClient] ${method} ${url.toString()}`);
-    if (bodyOrParams) {
-      console.error(`[TrelloClient] Params/Body:`, JSON.stringify(bodyOrParams));
+    
+    // Conditional logging
+    if (this.verboseLogging) {
+      console.error(`[TrelloClient] ${method} ${url.toString()}`);
+      if (bodyOrParams) {
+        console.error(`[TrelloClient] Params/Body:`, JSON.stringify(bodyOrParams));
+      }
     }
-    const response = await fetch(url.toString(), fetchOptions);
-    let responseBody: any = null;
+    
     try {
-      responseBody = await response.clone().json();
-    } catch (e) {
-      responseBody = await response.clone().text();
+      const response = await fetch(url.toString(), fetchOptions);
+      clearTimeout(timeoutId);
+      
+      const duration = Date.now() - startTime;
+      
+      // Log slow requests
+      if (duration > 5000) {
+        console.error(`[TrelloClient] Slow request: ${method} ${endpoint} took ${duration}ms`);
+      }
+      
+      let responseBody: any = null;
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        responseBody = await response.json();
+      } else {
+        responseBody = await response.text();
+      }
+      
+      if (this.verboseLogging) {
+        console.error(`[TrelloClient] Response Status: ${response.status} (${duration}ms)`);
+        // Only log response body if it's small enough to avoid memory issues
+        if (JSON.stringify(responseBody).length < 10000) {
+          console.error(`[TrelloClient] Response Body:`, responseBody);
+        } else {
+          console.error(`[TrelloClient] Response Body: [Large response omitted - ${JSON.stringify(responseBody).length} chars]`);
+        }
+      }
+      
+      if (!response.ok) {
+        const errorMessage = `Trello API error: ${response.status} ${response.statusText} - ${JSON.stringify(responseBody)}`;
+        
+        // Don't retry 4xx errors (client errors)
+        if (response.status >= 400 && response.status < 500) {
+          throw new Error(errorMessage);
+        }
+        
+        // Retry 5xx errors if retries are available
+        if (retriesLeft > 0) {
+          const delay = Math.min(1000 * Math.pow(2, this.retries - retriesLeft), 5000); // Exponential backoff with max 5s
+          console.error(`[TrelloClient] Server error ${response.status}, retrying in ${delay}ms... (${retriesLeft} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return this.requestWithRetry(endpoint, method, bodyOrParams, asQueryParams, retriesLeft - 1);
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      return responseBody as T;
+      
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      
+      const duration = Date.now() - startTime;
+      
+      // Handle AbortError (timeout)
+      if (error.name === 'AbortError') {
+        const timeoutError = new Error(`Request timeout after ${duration}ms: ${method} ${endpoint}`);
+        
+        if (retriesLeft > 0) {
+          const delay = Math.min(1000 * Math.pow(2, this.retries - retriesLeft), 5000);
+          console.error(`[TrelloClient] Timeout error, retrying in ${delay}ms... (${retriesLeft} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return this.requestWithRetry(endpoint, method, bodyOrParams, asQueryParams, retriesLeft - 1);
+        }
+        
+        throw timeoutError;
+      }
+      
+      // Handle network errors
+      if (error.code === 'ECONNRESET' || error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+        if (retriesLeft > 0) {
+          const delay = Math.min(1000 * Math.pow(2, this.retries - retriesLeft), 5000);
+          console.error(`[TrelloClient] Network error ${error.code}, retrying in ${delay}ms... (${retriesLeft} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return this.requestWithRetry(endpoint, method, bodyOrParams, asQueryParams, retriesLeft - 1);
+        }
+      }
+      
+      throw error;
     }
-    console.error(`[TrelloClient] Response Status: ${response.status}`);
-    console.error(`[TrelloClient] Response Body:`, responseBody);
-    if (!response.ok) {
-      throw new Error(`Trello API error: ${response.status} ${response.statusText} - ${JSON.stringify(responseBody)}`);
-    }
-    return responseBody as T;
   }
 
   // Board Management
