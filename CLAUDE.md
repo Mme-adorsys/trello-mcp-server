@@ -24,7 +24,12 @@ This is a Model Context Protocol (MCP) server that provides AI agents with acces
 
 **Core Components:**
 - `src/index.ts` - Server entry point, initializes MCP server and registers all modules
-- `src/trello-client.ts` - HTTP client wrapper for Trello REST API with retry logic, timeouts, and comprehensive error handling
+- `src/trello-client/` - Domain-Driven Design (DDD) architecture for Trello API client
+  - `trello-client.ts` - Main client facade that composes all domain clients
+  - `core/base-client.ts` - Base HTTP client with retry logic, timeouts, and error handling
+  - `core/config.ts` - Configuration types and validation
+  - `core/types.ts` - Core Trello API types and utilities
+  - `domains/` - Domain-specific clients organized by business capability
 - `src/helpers/trello-helpers.ts` - Common utility functions for complex Trello operations
 
 **MCP Integration Modules:**
@@ -36,11 +41,37 @@ This is a Model Context Protocol (MCP) server that provides AI agents with acces
   - `list-tools.ts` - List management and operations
   - `utility-tools.ts` - Search, webhooks, batch operations
 
+### Domain-Driven Design Architecture
+
+The Trello client follows Domain-Driven Design principles with clear separation of concerns:
+
+**Core Layer:**
+- `BaseClient` - Foundation HTTP client with retry logic and error handling
+- `TrelloConfig` - Configuration management and validation
+- `TrelloTypes` - Core domain types shared across all domains
+
+**Domain Layer:**
+- `boards/` - Board management (CRUD, members, preferences, power-ups)
+- `lists/` - List operations (creation, archiving, moving cards)
+- `cards/` - Basic card operations (CRUD, positioning, archiving)
+- `cards/card-features.ts` - Advanced card features (checklists, attachments, comments)
+- `members/` - Member and organization management
+- `labels/` - Label creation and management
+- `custom-fields/` - Custom field operations
+- `automation/` - Webhooks, search, and batch operations
+- `power-ups/` - Power-up management
+
+**Facade Pattern:**
+- `TrelloClient` - Main client that composes all domain clients and provides backwards compatibility
+
 ### Key Architecture Patterns
+- **Domain-Driven Design**: Business logic organized by domain boundaries
+- **Facade Pattern**: Single entry point with composed domain clients
 - **Modular Registration**: Each module registers its MCP components (resources/prompts/tools) with the server
 - **Comprehensive Error Handling**: All API calls wrapped with try-catch, structured error responses
 - **Type Safety**: Zod schemas validate all tool inputs, TypeScript interfaces for API responses
 - **Environment Configuration**: Configurable timeouts, retries, and logging via environment variables
+- **Backwards Compatibility**: All existing method signatures preserved through delegation
 
 ### API Coverage
 The client implements nearly the complete Trello REST API including advanced features like custom fields, webhooks, power-ups, and batch operations. Tools are organized by functional domain rather than API endpoint structure.
@@ -48,5 +79,8 @@ The client implements nearly the complete Trello REST API including advanced fea
 ### Development Notes
 - The codebase contains German language strings in user-facing messages and descriptions
 - All tools return structured JSON responses with error handling
-- The TrelloClient includes sophisticated retry logic with exponential backoff for reliability
+- The BaseClient includes sophisticated retry logic with exponential backoff for reliability
+- Each domain client extends BaseClient and focuses on a specific business capability
+- The main TrelloClient provides backwards compatibility by delegating to domain clients
+- Domain clients can be used independently for focused operations
 - MCP inspector integration allows interactive testing of all server capabilities
