@@ -1,0 +1,1 @@
+export { LabelClient } from './label-client.js';

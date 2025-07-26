@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { TrelloClient } from '../trello-client.js';
+import { TrelloClient } from '../trello-client/index.js';
 
 /**
  * Registers all utility MCP tools (search, batch, webhooks, custom fields, etc.)

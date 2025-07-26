@@ -1,7 +1,7 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Variables } from "@modelcontextprotocol/sdk/shared/uriTemplate.js";
 import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
-import { TrelloClient } from '../trello-client.js';
+import { TrelloClient } from '../trello-client/index.js';
 
 /**
  * Registers all MCP resources for the Trello server

@@ -1,4 +1,4 @@
-import { TrelloClient } from '../trello-client.js';
+import { TrelloClient } from '../trello-client/index.js';
 import { z } from 'zod';
 
 export interface ToolResponse {
