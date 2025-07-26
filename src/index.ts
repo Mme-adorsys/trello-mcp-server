@@ -10,6 +10,8 @@ import { registerBoardTools } from "./tools/board-tools.js";
 import { registerCardTools } from "./tools/card-tools.js";
 import { registerListTools } from "./tools/list-tools.js";
 import { registerUtilityTools } from "./tools/utility-tools.js";
+import { registerMemberTools } from "./tools/member-tools.js";
+import { registerIntegrationTools } from "./tools/integration-tools.js";
 import dotenv from "dotenv";
 
 // Load environment variables
@@ -24,13 +26,15 @@ const DISABLED_CATEGORIES = {
     board: process.env.TRELLO_TOOLS_BOARD_ENABLED === 'false',
     card: process.env.TRELLO_TOOLS_CARD_ENABLED === 'false',  
     list: process.env.TRELLO_TOOLS_LIST_ENABLED === 'false',
-    utility: process.env.TRELLO_TOOLS_UTILITY_ENABLED === 'false'
+    utility: process.env.TRELLO_TOOLS_UTILITY_ENABLED === 'false',
+    member: process.env.TRELLO_TOOLS_MEMBER_ENABLED === 'false',
+    integration: process.env.TRELLO_TOOLS_INTEGRATION_ENABLED === 'false'
 };
 
 /**
  * Checks if a tool should be registered based on environment variables
  * @param toolName - Name of the tool to check
- * @param category - Category of the tool (board, card, list, utility)
+ * @param category - Category of the tool (board, card, list, utility, member, integration)
  * @returns true if tool should be registered, false otherwise
  */
 function shouldRegisterTool(toolName: string, category: string): boolean {
@@ -85,6 +89,8 @@ registerBoardTools(server, trelloClient, helpers, shouldRegisterTool);
 registerCardTools(server, trelloClient, helpers, shouldRegisterTool);
 registerListTools(server, trelloClient, helpers, shouldRegisterTool);
 registerUtilityTools(server, trelloClient, shouldRegisterTool);
+registerMemberTools(server, trelloClient, shouldRegisterTool);
+registerIntegrationTools(server, trelloClient, shouldRegisterTool);
 
 // Start server
 async function main() {

@@ -19,11 +19,13 @@ The server requires TRELLO_API_KEY and TRELLO_TOKEN environment variables. Use a
 
 #### Tool Management
 Tools can be selectively disabled using environment variables:
-- `DISABLED_TOOLS=create-card,delete-card` - Disable specific tools (comma-separated)
-- `DISABLED_BOARD_TOOLS=true` - Disable all board-related tools
-- `DISABLED_CARD_TOOLS=true` - Disable all card-related tools  
-- `DISABLED_LIST_TOOLS=true` - Disable all list-related tools
-- `DISABLED_UTILITY_TOOLS=true` - Disable all utility tools
+- `TRELLO_TOOLS_DISABLED=create-card,delete-card` - Disable specific tools (comma-separated)
+- `TRELLO_TOOLS_BOARD_ENABLED=false` - Disable all board-related tools
+- `TRELLO_TOOLS_CARD_ENABLED=false` - Disable all card-related tools  
+- `TRELLO_TOOLS_LIST_ENABLED=false` - Disable all list-related tools
+- `TRELLO_TOOLS_UTILITY_ENABLED=false` - Disable all utility tools
+- `TRELLO_TOOLS_MEMBER_ENABLED=false` - Disable all member and organization tools
+- `TRELLO_TOOLS_INTEGRATION_ENABLED=false` - Disable all integration tools (webhooks, power-ups, custom fields)
 
 ## Code Architecture
 
@@ -44,10 +46,12 @@ This is a Model Context Protocol (MCP) server that provides AI agents with acces
 - `src/resources/` - MCP resources (read-only data): boards list, board details, board cards
 - `src/prompts/` - MCP prompts: board analysis, sprint planning assistance
 - `src/tools/` - MCP tools (actions) organized by domain:
-  - `board-tools.ts` - Board CRUD, member management, power-ups
-  - `card-tools.ts` - Card operations, checklists, attachments, comments
+  - `board-tools.ts` - Board CRUD, board preferences, finding tools
+  - `card-tools.ts` - Card operations, checklists, attachments, comments, bulk operations
   - `list-tools.ts` - List management and operations
-  - `utility-tools.ts` - Search, webhooks, batch operations
+  - `utility-tools.ts` - Core utilities (search, batch API, bulk archive, organization)
+  - `member-tools.ts` - Member management, organizations, invitations, board utilities
+  - `integration-tools.ts` - Webhooks, power-ups, custom fields management
 
 ### Domain-Driven Design Architecture
 
