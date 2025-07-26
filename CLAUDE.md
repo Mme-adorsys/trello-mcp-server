@@ -17,6 +17,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Configuration
 The server requires TRELLO_API_KEY and TRELLO_TOKEN environment variables. Use a .env file or the shell scripts which handle environment loading automatically.
 
+#### Tool Management
+Tools can be selectively disabled using environment variables:
+- `DISABLED_TOOLS=create-card,delete-card` - Disable specific tools (comma-separated)
+- `DISABLED_BOARD_TOOLS=true` - Disable all board-related tools
+- `DISABLED_CARD_TOOLS=true` - Disable all card-related tools  
+- `DISABLED_LIST_TOOLS=true` - Disable all list-related tools
+- `DISABLED_UTILITY_TOOLS=true` - Disable all utility tools
+
 ## Code Architecture
 
 ### MCP Server Structure
@@ -67,6 +75,7 @@ The Trello client follows Domain-Driven Design principles with clear separation 
 ### Key Architecture Patterns
 - **Domain-Driven Design**: Business logic organized by domain boundaries
 - **Facade Pattern**: Single entry point with composed domain clients
+- **Conditional Tool Registration**: Tools can be selectively enabled/disabled via environment variables
 - **Modular Registration**: Each module registers its MCP components (resources/prompts/tools) with the server
 - **Comprehensive Error Handling**: All API calls wrapped with try-catch, structured error responses
 - **Type Safety**: Zod schemas validate all tool inputs, TypeScript interfaces for API responses

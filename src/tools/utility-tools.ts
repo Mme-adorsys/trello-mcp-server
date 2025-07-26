@@ -5,9 +5,16 @@ import { TrelloClient } from '../trello-client/index.js';
 /**
  * Registers all utility MCP tools (search, batch, webhooks, custom fields, etc.)
  */
-export function registerUtilityTools(server: McpServer, trelloClient: TrelloClient) {
+export function registerUtilityTools(server: McpServer, trelloClient: TrelloClient, shouldRegisterTool: (name: string, category: string) => boolean) {
+    
+    // Helper function to conditionally register tools
+    const registerTool = (name: string, config: any, handler: (params: any) => Promise<any>) => {
+        if (shouldRegisterTool(name, 'utility')) {
+            server.registerTool(name, config, handler);
+        }
+    };
     // Environment Variables
-    server.registerTool(
+    registerTool(
         "show-env",
         {
             title: "Show Env",
@@ -28,7 +35,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Search
-    server.registerTool(
+    registerTool(
         "search-trello",
         {
             title: "Trello durchsuchen",
@@ -47,7 +54,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Batch API
-    server.registerTool(
+    registerTool(
         "batch-trello",
         {
             title: "Batch-API aufrufen",
@@ -61,7 +68,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Webhooks
-    server.registerTool(
+    registerTool(
         "get-webhooks",
         {
             title: "Webhooks abrufen",
@@ -74,7 +81,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "create-webhook",
         {
             title: "Webhook erstellen",
@@ -87,7 +94,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "update-webhook",
         {
             title: "Webhook aktualisieren",
@@ -109,7 +116,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "delete-webhook",
         {
             title: "Webhook löschen",
@@ -123,7 +130,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Custom Fields Management
-    server.registerTool(
+    registerTool(
         "get-board-custom-fields",
         {
             title: "Board Custom Fields abrufen",
@@ -146,7 +153,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "create-custom-field",
         {
             title: "Custom Field erstellen",
@@ -189,7 +196,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "get-custom-field",
         {
             title: "Custom Field abrufen",
@@ -212,7 +219,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "update-custom-field",
         {
             title: "Custom Field aktualisieren",
@@ -250,7 +257,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "delete-custom-field",
         {
             title: "Custom Field löschen",
@@ -274,7 +281,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Custom Field Options (for dropdown/list type fields)
-    server.registerTool(
+    registerTool(
         "get-custom-field-options",
         {
             title: "Custom Field Optionen abrufen",
@@ -297,7 +304,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "add-custom-field-option",
         {
             title: "Custom Field Option hinzufügen",
@@ -320,7 +327,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "get-custom-field-option",
         {
             title: "Custom Field Option abrufen",
@@ -346,7 +353,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "delete-custom-field-option",
         {
             title: "Custom Field Option löschen",
@@ -373,7 +380,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Organizations/Workspaces
-    server.registerTool(
+    registerTool(
         "get-member-organizations",
         {
             title: "Mitglieds-Organisationen abrufen",
@@ -409,7 +416,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "get-organization-boards",
         {
             title: "Boards einer Organisation abrufen",
@@ -449,7 +456,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Invitations
-    server.registerTool(
+    registerTool(
         "invite-to-board",
         {
             title: "Mitglied zu Board einladen",
@@ -467,7 +474,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "invite-to-organization",
         {
             title: "Mitglied zu Organisation einladen",
@@ -486,7 +493,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Power-Ups
-    server.registerTool(
+    registerTool(
         "get-board-powerups",
         {
             title: "Power-Ups eines Boards abrufen",
@@ -499,7 +506,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "enable-board-powerup",
         {
             title: "Power-Up aktivieren",
@@ -512,7 +519,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "disable-board-powerup",
         {
             title: "Power-Up deaktivieren",
@@ -526,7 +533,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Board Member Management
-    server.registerTool(
+    registerTool(
         "add-member-to-board",
         {
             title: "Mitglied zu Board hinzufügen",
@@ -559,7 +566,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "update-board-member",
         {
             title: "Board-Mitglied aktualisieren",
@@ -591,7 +598,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "remove-board-member",
         {
             title: "Mitglied von Board entfernen",
@@ -623,7 +630,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Board Utilities
-    server.registerTool(
+    registerTool(
         "generate-board-calendar-key",
         {
             title: "Board-Kalender-Key generieren",
@@ -653,7 +660,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "generate-board-email-key",
         {
             title: "Board-E-Mail-Key generieren",
@@ -683,7 +690,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "mark-board-as-viewed",
         {
             title: "Board als angesehen markieren",
@@ -713,7 +720,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
         }
     );
 
-    server.registerTool(
+    registerTool(
         "update-board-my-prefs",
         {
             title: "Board-MyPrefs aktualisieren",
@@ -750,7 +757,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Bulk Archive Cards
-    server.registerTool(
+    registerTool(
         "bulk-archive-cards",
         {
             title: "Mehrere Karten archivieren (Bulk)",
@@ -786,7 +793,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
                 // Get cards based on selection criteria
                 if (params.cardSelection.cardIds && params.cardSelection.cardIds.length > 0) {
                     cardsToArchive = await Promise.all(
-                        params.cardSelection.cardIds.map(cardId => trelloClient.getCard(cardId))
+                        params.cardSelection.cardIds.map((cardId: any) => trelloClient.getCard(cardId))
                     );
                 } else {
                     let allCards: any[] = [];
@@ -963,7 +970,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
     );
 
     // Organize Cards by Due Date
-    server.registerTool(
+    registerTool(
         "organize-cards-by-due-date",
         {
             title: "Karten nach Fälligkeitsdatum organisieren",
@@ -1015,7 +1022,7 @@ export function registerUtilityTools(server: McpServer, trelloClient: TrelloClie
                 if (params.sourceFilters?.excludeLabels) {
                     cardsToOrganize = cardsToOrganize.filter(card => {
                         const cardLabelNames = card.labels?.map((label: any) => label.name.toLowerCase()) || [];
-                        return !params.sourceFilters!.excludeLabels!.some(excludeLabel => 
+                        return !params.sourceFilters!.excludeLabels!.some((excludeLabel: any) => 
                             cardLabelNames.includes(excludeLabel.toLowerCase())
                         );
                     });

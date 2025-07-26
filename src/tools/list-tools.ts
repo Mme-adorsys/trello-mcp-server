@@ -6,9 +6,16 @@ import { TrelloHelpers, HelperSchemas } from '../helpers/trello-helpers.js';
 /**
  * Registers all list-related MCP tools
  */
-export function registerListTools(server: McpServer, trelloClient: TrelloClient, helpers: TrelloHelpers) {
+export function registerListTools(server: McpServer, trelloClient: TrelloClient, helpers: TrelloHelpers, shouldRegisterTool: (name: string, category: string) => boolean) {
+    
+    // Helper function to conditionally register tools
+    const registerTool = (name: string, config: any, handler: (params: any) => Promise<any>) => {
+        if (shouldRegisterTool(name, 'list')) {
+            server.registerTool(name, config, handler);
+        }
+    };
     // Create List
-    server.registerTool(
+    registerTool(
         "create-list",
         {
             title: "Liste erstellen",
@@ -44,7 +51,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Get List
-    server.registerTool(
+    registerTool(
         "get-list",
         {
             title: "Liste abrufen",
@@ -76,7 +83,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Update List (Full)
-    server.registerTool(
+    registerTool(
         "update-list-full",
         {
             title: "Liste aktualisieren (alle Felder)",
@@ -112,7 +119,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Create List (Full)
-    server.registerTool(
+    registerTool(
         "create-list-full",
         {
             title: "Liste erstellen (alle Felder)",
@@ -146,7 +153,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Archive All Cards in List
-    server.registerTool(
+    registerTool(
         "archive-all-cards-in-list",
         {
             title: "Alle Karten in Liste archivieren",
@@ -177,7 +184,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Move All Cards in List
-    server.registerTool(
+    registerTool(
         "move-all-cards-in-list",
         {
             title: "Alle Karten in Liste verschieben",
@@ -210,7 +217,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Set List Closed (Archive/Unarchive)
-    server.registerTool(
+    registerTool(
         "set-list-closed",
         {
             title: "Liste archivieren/reaktivieren",
@@ -242,7 +249,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Move List to Board
-    server.registerTool(
+    registerTool(
         "move-list-to-board",
         {
             title: "Liste zu anderem Board verschieben",
@@ -274,7 +281,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Update List Field
-    server.registerTool(
+    registerTool(
         "update-list-field",
         {
             title: "Feld einer Liste aktualisieren",
@@ -307,7 +314,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Get List Actions
-    server.registerTool(
+    registerTool(
         "get-list-actions",
         {
             title: "Aktionen einer Liste abrufen",
@@ -339,7 +346,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Get List Board
-    server.registerTool(
+    registerTool(
         "get-list-board",
         {
             title: "Board einer Liste abrufen",
@@ -371,7 +378,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Get List Cards
-    server.registerTool(
+    registerTool(
         "get-list-cards",
         {
             title: "Karten einer Liste abrufen",
@@ -402,7 +409,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Helper Tool for Lists
-    server.registerTool(
+    registerTool(
         "get-list-by-name",
         {
             title: "Liste nach Name suchen",
@@ -413,7 +420,7 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // List Cards in List (Minimal)
-    server.registerTool(
+    registerTool(
         "list-cards-in-list",
         {
             title: "Listen-Karten auflisten (minimal)",

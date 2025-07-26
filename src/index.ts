@@ -15,6 +15,38 @@ import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 
+// Tool activation/deactivation configuration
+const DISABLED_TOOLS = process.env.TRELLO_TOOLS_DISABLED 
+    ? process.env.TRELLO_TOOLS_DISABLED.split(',').map(t => t.trim().toLowerCase())
+    : [];
+
+const DISABLED_CATEGORIES = {
+    board: process.env.TRELLO_TOOLS_BOARD_ENABLED === 'false',
+    card: process.env.TRELLO_TOOLS_CARD_ENABLED === 'false',  
+    list: process.env.TRELLO_TOOLS_LIST_ENABLED === 'false',
+    utility: process.env.TRELLO_TOOLS_UTILITY_ENABLED === 'false'
+};
+
+/**
+ * Checks if a tool should be registered based on environment variables
+ * @param toolName - Name of the tool to check
+ * @param category - Category of the tool (board, card, list, utility)
+ * @returns true if tool should be registered, false otherwise
+ */
+function shouldRegisterTool(toolName: string, category: string): boolean {
+    // Check if entire category is disabled
+    if (DISABLED_CATEGORIES[category as keyof typeof DISABLED_CATEGORIES]) {
+        return false;
+    }
+    
+    // Check if specific tool is disabled
+    if (DISABLED_TOOLS.includes(toolName.toLowerCase())) {
+        return false;
+    }
+    
+    return true;
+}
+
 // Validate environment variables
 const TRELLO_API_KEY = process.env.TRELLO_API_KEY;
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
@@ -48,11 +80,11 @@ registerTrelloResources(server, trelloClient);
 // Register all prompts
 registerTrelloPrompts(server);
 
-// Register all tools by category
-registerBoardTools(server, trelloClient, helpers);
-registerCardTools(server, trelloClient, helpers);
-registerListTools(server, trelloClient, helpers);
-registerUtilityTools(server, trelloClient);
+// Register all tools by category (with conditional registration)
+registerBoardTools(server, trelloClient, helpers, shouldRegisterTool);
+registerCardTools(server, trelloClient, helpers, shouldRegisterTool);
+registerListTools(server, trelloClient, helpers, shouldRegisterTool);
+registerUtilityTools(server, trelloClient, shouldRegisterTool);
 
 // Start server
 async function main() {

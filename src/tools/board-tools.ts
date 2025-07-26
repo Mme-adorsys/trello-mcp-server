@@ -6,9 +6,17 @@ import { TrelloHelpers } from '../helpers/trello-helpers.js';
 /**
  * Registers all board-related MCP tools
  */
-export function registerBoardTools(server: McpServer, trelloClient: TrelloClient, helpers: TrelloHelpers) {
+export function registerBoardTools(server: McpServer, trelloClient: TrelloClient, helpers: TrelloHelpers, shouldRegisterTool: (name: string, category: string) => boolean) {
+    
+    // Helper function to conditionally register tools
+    const registerTool = (name: string, config: any, handler: (params: any) => Promise<any>) => {
+        if (shouldRegisterTool(name, 'board')) {
+            server.registerTool(name, config, handler);
+        }
+    };
+
     // Create Board
-    server.registerTool(
+    registerTool(
         "create-board",
         {
             title: "Board erstellen",
@@ -72,7 +80,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Close Board
-    server.registerTool(
+    registerTool(
         "close-board",
         {
             title: "Board schließen",
@@ -103,7 +111,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Get All Boards
-    server.registerTool(
+    registerTool(
         "boards",
         {
             title: "Alle Boards abrufen",
@@ -119,7 +127,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Get Board (Simple)
-    server.registerTool(
+    registerTool(
         "get-board",
         {
             title: "Board abrufen (einfach)",
@@ -150,7 +158,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Find Board by Name
-    server.registerTool(
+    registerTool(
         "find-board-by-name",
         {
             title: "Finde ein Board anhand eines Namens",
@@ -163,7 +171,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Get Board Detailed
-    server.registerTool(
+    registerTool(
         "get-board-detailed",
         {
             title: "Board (detailliert) abrufen",
@@ -210,7 +218,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Update Board
-    server.registerTool(
+    registerTool(
         "update-board",
         {
             title: "Board aktualisieren",
@@ -242,7 +250,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Delete Board
-    server.registerTool(
+    registerTool(
         "delete-board",
         {
             title: "Board löschen",
@@ -273,7 +281,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Get Board Field
-    server.registerTool(
+    registerTool(
         "get-board-field",
         {
             title: "Einzelnes Board-Feld abrufen",
@@ -305,7 +313,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Get Board Actions
-    server.registerTool(
+    registerTool(
         "get-board-actions",
         {
             title: "Board-Aktionen abrufen",
@@ -349,7 +357,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Get Board Cards
-    server.registerTool(
+    registerTool(
         "get-board-cards",
         {
             title: "Board-Karten abrufen",
@@ -381,7 +389,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Get Board Lists
-    server.registerTool(
+    registerTool(
         "get-board-lists",
         {
             title: "Board-Listen abrufen",
@@ -413,7 +421,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Get Board Members
-    server.registerTool(
+    registerTool(
         "get-board-members",
         {
             title: "Board-Mitglieder abrufen",
@@ -444,7 +452,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Get Board Checklists
-    server.registerTool(
+    registerTool(
         "get-board-checklists",
         {
             title: "Board-Checklisten abrufen",
@@ -475,7 +483,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Get Board Labels
-    server.registerTool(
+    registerTool(
         "get-board-labels",
         {
             title: "Board-Labels abrufen",
@@ -506,7 +514,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Board Overview Helper
-    server.registerTool(
+    registerTool(
         "get-board-overview",
         {
             title: "Board-Übersicht abrufen",
@@ -519,7 +527,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Find List by Name
-    server.registerTool(
+    registerTool(
         "find-list-by-name",
         {
             title: "Liste nach Name suchen",
@@ -603,7 +611,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Find Card by Name
-    server.registerTool(
+    registerTool(
         "find-card-by-name",
         {
             title: "Karte nach Name suchen",
@@ -744,7 +752,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Quick Find Board (with fuzzy search)
-    server.registerTool(
+    registerTool(
         "quick-find-board",
         {
             title: "Board schnell finden (Fuzzy Search)",
@@ -842,7 +850,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // Get Board Structure (Complete overview in one call)
-    server.registerTool(
+    registerTool(
         "get-board-structure",
         {
             title: "Vollständige Board-Struktur abrufen",
@@ -953,7 +961,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // List Board Lists (Minimal)
-    server.registerTool(
+    registerTool(
         "list-board-lists",
         {
             title: "Board-Listen auflisten (minimal)",
@@ -982,7 +990,7 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
     );
 
     // List Board Cards (Minimal)
-    server.registerTool(
+    registerTool(
         "list-board-cards",
         {
             title: "Board-Karten auflisten (minimal)",

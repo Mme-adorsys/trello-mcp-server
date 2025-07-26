@@ -6,9 +6,16 @@ import { TrelloHelpers, HelperSchemas } from '../helpers/trello-helpers.js';
 /**
  * Registers all card-related MCP tools
  */
-export function registerCardTools(server: McpServer, trelloClient: TrelloClient, helpers: TrelloHelpers) {
+export function registerCardTools(server: McpServer, trelloClient: TrelloClient, helpers: TrelloHelpers, shouldRegisterTool: (name: string, category: string) => boolean) {
+    
+    // Helper function to conditionally register tools
+    const registerTool = (name: string, config: any, handler: (params: any) => Promise<any>) => {
+        if (shouldRegisterTool(name, 'card')) {
+            server.registerTool(name, config, handler);
+        }
+    };
     // Create Card
-    server.registerTool(
+    registerTool(
         "create-card",
         {
             title: "Karte erstellen",
@@ -45,7 +52,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Move Card
-    server.registerTool(
+    registerTool(
         "move-card",
         {
             title: "Karte verschieben",
@@ -78,7 +85,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Update Card
-    server.registerTool(
+    registerTool(
         "update-card",
         {
             title: "Karte aktualisieren",
@@ -117,7 +124,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Card Checklists
-    server.registerTool(
+    registerTool(
         "get-card-checklists",
         {
             title: "Checklisten einer Karte abrufen",
@@ -130,7 +137,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "add-checklist-to-card",
         {
             title: "Checkliste zu Karte hinzufügen",
@@ -143,7 +150,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "update-checklist",
         {
             title: "Checkliste aktualisieren",
@@ -163,7 +170,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "delete-checklist",
         {
             title: "Checkliste löschen",
@@ -177,7 +184,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Card Attachments
-    server.registerTool(
+    registerTool(
         "get-card-attachments",
         {
             title: "Anhänge einer Karte abrufen",
@@ -190,7 +197,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "add-attachment-to-card",
         {
             title: "Anhang zu Karte hinzufügen",
@@ -203,7 +210,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "delete-attachment",
         {
             title: "Anhang löschen",
@@ -217,7 +224,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Card Comments
-    server.registerTool(
+    registerTool(
         "get-card-comments",
         {
             title: "Kommentare einer Karte abrufen",
@@ -230,7 +237,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "add-comment-to-card",
         {
             title: "Kommentar zu Karte hinzufügen",
@@ -243,7 +250,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "update-comment",
         {
             title: "Kommentar aktualisieren",
@@ -256,7 +263,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "delete-comment",
         {
             title: "Kommentar löschen",
@@ -270,7 +277,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Card Custom Fields
-    server.registerTool(
+    registerTool(
         "get-card-custom-fields",
         {
             title: "Custom Fields einer Karte abrufen",
@@ -283,7 +290,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "set-card-custom-field",
         {
             title: "Custom Field einer Karte setzen",
@@ -301,7 +308,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Card Labels
-    server.registerTool(
+    registerTool(
         "get-card-labels",
         {
             title: "Labels einer Karte abrufen",
@@ -314,7 +321,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "add-label-to-card",
         {
             title: "Label zu Karte hinzufügen",
@@ -327,7 +334,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "remove-label-from-card",
         {
             title: "Label von Karte entfernen",
@@ -340,7 +347,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "create-label",
         {
             title: "Label erstellen",
@@ -353,7 +360,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "delete-label",
         {
             title: "Label löschen",
@@ -367,7 +374,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Card Members
-    server.registerTool(
+    registerTool(
         "get-card-members",
         {
             title: "Mitglieder einer Karte abrufen",
@@ -380,7 +387,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "add-member-to-card",
         {
             title: "Mitglied zu Karte hinzufügen",
@@ -393,7 +400,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "remove-member-from-card",
         {
             title: "Mitglied von Karte entfernen",
@@ -407,7 +414,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Card Advanced Actions
-    server.registerTool(
+    registerTool(
         "archive-card",
         {
             title: "Karte archivieren",
@@ -420,7 +427,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "unarchive-card",
         {
             title: "Karte wiederherstellen",
@@ -433,7 +440,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "copy-card",
         {
             title: "Karte kopieren",
@@ -446,7 +453,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "subscribe-to-card",
         {
             title: "Karte abonnieren",
@@ -459,7 +466,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         }
     );
 
-    server.registerTool(
+    registerTool(
         "vote-on-card",
         {
             title: "Karte bewerten (Daumen hoch/runter)",
@@ -473,7 +480,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Helper Tools for Cards
-    server.registerTool(
+    registerTool(
         "get-card-by-name",
         {
             title: "Karte nach Name suchen",
@@ -484,7 +491,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Next Actions Helper Tools
-    server.registerTool(
+    registerTool(
         "get-next-actions-card",
         {
             title: "Ersten Karte in 'next-actions' abrufen",
@@ -494,7 +501,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         async (params) => helpers.getNextActionsCard(params.boardNameFilter, params.projectFilter)
     );
 
-    server.registerTool(
+    registerTool(
         "get-next-actions-prompt",
         {
             title: "Prompt-Feld der ersten Karte in 'next-actions' abrufen",
@@ -505,7 +512,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Bulk Create Cards
-    server.registerTool(
+    registerTool(
         "bulk-create-cards",
         {
             title: "Mehrere Karten erstellen (Bulk)",
@@ -543,7 +550,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
                 for (let i = 0; i < params.cards.length; i += params.batchSize) {
                     const batch = params.cards.slice(i, i + params.batchSize);
                     
-                    const batchPromises = batch.map(async (cardData, index) => {
+                    const batchPromises = batch.map(async (cardData: any, index: any) => {
                         try {
                             // Merge card data with defaults
                             const cardOptions: any = {
@@ -648,7 +655,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Bulk Move Cards
-    server.registerTool(
+    registerTool(
         "bulk-move-cards",
         {
             title: "Mehrere Karten verschieben (Bulk)",
@@ -684,7 +691,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
                 if (params.cardSelection.cardIds && params.cardSelection.cardIds.length > 0) {
                     // Move specific cards by ID
                     cardsToMove = await Promise.all(
-                        params.cardSelection.cardIds.map(cardId => trelloClient.getCard(cardId))
+                        params.cardSelection.cardIds.map((cardId: any) => trelloClient.getCard(cardId))
                     );
                 } else {
                     // Find cards based on filters
@@ -860,7 +867,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
     );
 
     // Bulk Update Cards
-    server.registerTool(
+    registerTool(
         "bulk-update-cards",
         {
             title: "Mehrere Karten aktualisieren (Bulk)",
@@ -919,7 +926,7 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
                 // Get cards based on selection criteria (similar to bulk-move-cards)
                 if (params.cardSelection.cardIds && params.cardSelection.cardIds.length > 0) {
                     cardsToUpdate = await Promise.all(
-                        params.cardSelection.cardIds.map(cardId => trelloClient.getCard(cardId))
+                        params.cardSelection.cardIds.map((cardId: any) => trelloClient.getCard(cardId))
                     );
                 } else {
                     let allCards: any[] = [];
