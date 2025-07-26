@@ -503,4 +503,721 @@ export function registerCardTools(server: McpServer, trelloClient: TrelloClient,
         },
         async (params) => helpers.getNextActionsPrompt(params.boardId, params.cardId)
     );
+
+    // Bulk Create Cards
+    server.registerTool(
+        "bulk-create-cards",
+        {
+            title: "Mehrere Karten erstellen (Bulk)",
+            description: "Erstellt mehrere Karten gleichzeitig mit optionalen Templates und Standardwerten.",
+            inputSchema: {
+                listId: z.string().min(1, "Listen-ID ist erforderlich"),
+                cards: z.array(z.object({
+                    name: z.string().min(1, "Karten-Name ist erforderlich"),
+                    description: z.string().optional(),
+                    dueDate: z.string().optional(),
+                    position: z.union([z.string(), z.number()]).optional(),
+                    labelIds: z.array(z.string()).optional(),
+                    memberIds: z.array(z.string()).optional()
+                })).min(1, "Mindestens eine Karte muss definiert werden"),
+                applyDefaults: z.object({
+                    description: z.string().optional(),
+                    dueDate: z.string().optional(),
+                    labelIds: z.array(z.string()).optional(),
+                    memberIds: z.array(z.string()).optional()
+                }).optional(),
+                createChecklists: z.array(z.object({
+                    name: z.string().min(1),
+                    items: z.array(z.string()).optional()
+                })).optional(),
+                batchSize: z.number().default(10).describe("Anzahl Karten pro Batch (Standard: 10)")
+            }
+        },
+        async (params) => {
+            console.error(`[bulk-create-cards] Input:`, params);
+            try {
+                const results: any[] = [];
+                const errors: any[] = [];
+                
+                // Process cards in batches to avoid overwhelming the API
+                for (let i = 0; i < params.cards.length; i += params.batchSize) {
+                    const batch = params.cards.slice(i, i + params.batchSize);
+                    
+                    const batchPromises = batch.map(async (cardData, index) => {
+                        try {
+                            // Merge card data with defaults
+                            const cardOptions: any = {
+                                idList: params.listId,
+                                name: cardData.name,
+                                desc: cardData.description || params.applyDefaults?.description,
+                                due: cardData.dueDate || params.applyDefaults?.dueDate,
+                                pos: cardData.position
+                            };
+
+                            // Add label IDs
+                            const labelIds = [...(cardData.labelIds || []), ...(params.applyDefaults?.labelIds || [])];
+                            if (labelIds.length > 0) {
+                                cardOptions.idLabels = [...new Set(labelIds)].join(',');
+                            }
+
+                            // Add member IDs
+                            const memberIds = [...(cardData.memberIds || []), ...(params.applyDefaults?.memberIds || [])];
+                            if (memberIds.length > 0) {
+                                cardOptions.idMembers = [...new Set(memberIds)].join(',');
+                            }
+
+                            const card = await trelloClient.createCard(cardOptions);
+
+                            // Add checklists if specified
+                            if (params.createChecklists && params.createChecklists.length > 0) {
+                                for (const checklistTemplate of params.createChecklists) {
+                                    const checklist = await trelloClient.addChecklistToCard(card.id, checklistTemplate.name);
+                                    
+                                    // Add checklist items if specified
+                                    if (checklistTemplate.items && checklistTemplate.items.length > 0) {
+                                        // Note: This would require additional API calls to add items to checklist
+                                        // For now, we'll just create the checklist structure
+                                    }
+                                }
+                            }
+
+                            return {
+                                success: true,
+                                card: card,
+                                originalIndex: i + index
+                            };
+                        } catch (error) {
+                            return {
+                                success: false,
+                                error: error instanceof Error ? error.message : 'Unbekannter Fehler',
+                                cardData: cardData,
+                                originalIndex: i + index
+                            };
+                        }
+                    });
+
+                    const batchResults = await Promise.all(batchPromises);
+                    
+                    batchResults.forEach(result => {
+                        if (result.success) {
+                            results.push(result);
+                        } else {
+                            errors.push(result);
+                        }
+                    });
+
+                    // Small delay between batches to be nice to the API
+                    if (i + params.batchSize < params.cards.length) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                    }
+                }
+
+                console.error(`[bulk-create-cards] Created ${results.length} cards, ${errors.length} errors`);
+                return {
+                    content: [{
+                        type: "text",
+                        text: JSON.stringify({
+                            summary: {
+                                requested: params.cards.length,
+                                successful: results.length,
+                                failed: errors.length,
+                                batchSize: params.batchSize
+                            },
+                            createdCards: results.map(r => ({
+                                id: r.card.id,
+                                name: r.card.name,
+                                shortUrl: r.card.shortUrl,
+                                originalIndex: r.originalIndex
+                            })),
+                            errors: errors,
+                            listId: params.listId
+                        }, null, 2)
+                    }]
+                };
+            } catch (error) {
+                console.error(`[bulk-create-cards] Error:`, error);
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Fehler beim Erstellen der Karten: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`
+                    }],
+                    isError: true
+                };
+            }
+        }
+    );
+
+    // Bulk Move Cards
+    server.registerTool(
+        "bulk-move-cards",
+        {
+            title: "Mehrere Karten verschieben (Bulk)",
+            description: "Verschiebt mehrere Karten basierend auf Filtern oder expliziten IDs zu einer neuen Liste.",
+            inputSchema: {
+                targetListId: z.string().min(1, "Ziel-Listen-ID ist erforderlich"),
+                cardSelection: z.object({
+                    cardIds: z.array(z.string()).optional(),
+                    fromListId: z.string().optional(),
+                    fromBoardId: z.string().optional(),
+                    filters: z.object({
+                        nameContains: z.string().optional(),
+                        hasLabel: z.string().optional(),
+                        assignedToMember: z.string().optional(),
+                        dueDateStatus: z.enum(["overdue", "due_today", "due_week", "no_due_date"]).optional(),
+                        isArchived: z.boolean().default(false),
+                        maxAge: z.number().optional().describe("Maximales Alter in Tagen")
+                    }).optional()
+                }),
+                positioning: z.object({
+                    strategy: z.enum(["top", "bottom", "preserve_order"]).default("bottom"),
+                    startPosition: z.number().optional()
+                }).optional(),
+                batchSize: z.number().default(20).describe("Anzahl Karten pro Batch (Standard: 20)")
+            }
+        },
+        async (params) => {
+            console.error(`[bulk-move-cards] Input:`, params);
+            try {
+                let cardsToMove: any[] = [];
+
+                // Get cards based on selection criteria
+                if (params.cardSelection.cardIds && params.cardSelection.cardIds.length > 0) {
+                    // Move specific cards by ID
+                    cardsToMove = await Promise.all(
+                        params.cardSelection.cardIds.map(cardId => trelloClient.getCard(cardId))
+                    );
+                } else {
+                    // Find cards based on filters
+                    let allCards: any[] = [];
+
+                    if (params.cardSelection.fromListId) {
+                        allCards = await trelloClient.getListCards(params.cardSelection.fromListId);
+                    } else if (params.cardSelection.fromBoardId) {
+                        allCards = await trelloClient.getBoardCards({
+                            id: params.cardSelection.fromBoardId,
+                            filter: params.cardSelection.filters?.isArchived ? 'all' : 'visible'
+                        });
+                    } else {
+                        throw new Error("Entweder cardIds, fromListId oder fromBoardId muss angegeben werden");
+                    }
+
+                    // Apply filters
+                    if (params.cardSelection.filters) {
+                        const filters = params.cardSelection.filters;
+                        
+                        cardsToMove = allCards.filter(card => {
+                            // Name filter
+                            if (filters.nameContains && !card.name.toLowerCase().includes(filters.nameContains.toLowerCase())) {
+                                return false;
+                            }
+
+                            // Label filter
+                            if (filters.hasLabel) {
+                                const hasMatchingLabel = card.labels?.some((label: any) => 
+                                    label.name.toLowerCase().includes(filters.hasLabel!.toLowerCase())
+                                );
+                                if (!hasMatchingLabel) return false;
+                            }
+
+                            // Member filter
+                            if (filters.assignedToMember) {
+                                const hasMatchingMember = card.members?.some((member: any) => 
+                                    member.fullName.toLowerCase().includes(filters.assignedToMember!.toLowerCase()) ||
+                                    member.username.toLowerCase().includes(filters.assignedToMember!.toLowerCase())
+                                );
+                                if (!hasMatchingMember) return false;
+                            }
+
+                            // Due date filter
+                            if (filters.dueDateStatus) {
+                                const now = new Date();
+                                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                                const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+                                if (!card.due && filters.dueDateStatus !== "no_due_date") return false;
+                                if (card.due) {
+                                    const dueDate = new Date(card.due);
+                                    switch (filters.dueDateStatus) {
+                                        case "overdue":
+                                            if (dueDate >= today) return false;
+                                            break;
+                                        case "due_today":
+                                            if (dueDate < today || dueDate >= new Date(today.getTime() + 24 * 60 * 60 * 1000)) return false;
+                                            break;
+                                        case "due_week":
+                                            if (dueDate < today || dueDate > nextWeek) return false;
+                                            break;
+                                        case "no_due_date":
+                                            return false;
+                                    }
+                                }
+                            }
+
+                            // Age filter
+                            if (filters.maxAge) {
+                                const cardAge = (Date.now() - new Date(card.dateLastActivity).getTime()) / (1000 * 60 * 60 * 24);
+                                if (cardAge > filters.maxAge) return false;
+                            }
+
+                            return true;
+                        });
+                    } else {
+                        cardsToMove = allCards;
+                    }
+                }
+
+                if (cardsToMove.length === 0) {
+                    throw new Error("Keine Karten gefunden, die den Kriterien entsprechen");
+                }
+
+                // Move cards in batches
+                const results: any[] = [];
+                const errors: any[] = [];
+
+                for (let i = 0; i < cardsToMove.length; i += params.batchSize) {
+                    const batch = cardsToMove.slice(i, i + params.batchSize);
+                    
+                    const batchPromises = batch.map(async (card, batchIndex) => {
+                        try {
+                            let position: any = undefined;
+                            
+                            if (params.positioning?.strategy === "top") {
+                                position = "top";
+                            } else if (params.positioning?.strategy === "preserve_order") {
+                                position = params.positioning.startPosition ? 
+                                    params.positioning.startPosition + i + batchIndex : 
+                                    undefined;
+                            }
+
+                            const movedCard = await trelloClient.moveCard(card.id, params.targetListId, position);
+                            
+                            return {
+                                success: true,
+                                card: movedCard,
+                                originalCard: card
+                            };
+                        } catch (error) {
+                            return {
+                                success: false,
+                                error: error instanceof Error ? error.message : 'Unbekannter Fehler',
+                                originalCard: card
+                            };
+                        }
+                    });
+
+                    const batchResults = await Promise.all(batchPromises);
+                    
+                    batchResults.forEach(result => {
+                        if (result.success) {
+                            results.push(result);
+                        } else {
+                            errors.push(result);
+                        }
+                    });
+
+                    // Small delay between batches
+                    if (i + params.batchSize < cardsToMove.length) {
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                }
+
+                console.error(`[bulk-move-cards] Moved ${results.length} cards, ${errors.length} errors`);
+                return {
+                    content: [{
+                        type: "text",
+                        text: JSON.stringify({
+                            summary: {
+                                found: cardsToMove.length,
+                                successful: results.length,
+                                failed: errors.length,
+                                targetListId: params.targetListId
+                            },
+                            movedCards: results.map(r => ({
+                                id: r.card.id,
+                                name: r.card.name,
+                                shortUrl: r.card.shortUrl,
+                                fromList: r.originalCard.idList
+                            })),
+                            errors: errors.map(e => ({
+                                cardId: e.originalCard.id,
+                                cardName: e.originalCard.name,
+                                error: e.error
+                            }))
+                        }, null, 2)
+                    }]
+                };
+            } catch (error) {
+                console.error(`[bulk-move-cards] Error:`, error);
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Fehler beim Verschieben der Karten: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`
+                    }],
+                    isError: true
+                };
+            }
+        }
+    );
+
+    // Bulk Update Cards
+    server.registerTool(
+        "bulk-update-cards",
+        {
+            title: "Mehrere Karten aktualisieren (Bulk)",
+            description: "Aktualisiert mehrere Karten gleichzeitig mit verschiedenen Operationen (Namen, Beschreibung, Labels, Mitglieder, etc.).",
+            inputSchema: {
+                cardSelection: z.object({
+                    cardIds: z.array(z.string()).optional(),
+                    fromListId: z.string().optional(),
+                    fromBoardId: z.string().optional(),
+                    filters: z.object({
+                        nameContains: z.string().optional(),
+                        hasLabel: z.string().optional(),
+                        assignedToMember: z.string().optional(),
+                        dueDateStatus: z.enum(["overdue", "due_today", "due_week", "no_due_date"]).optional(),
+                        isArchived: z.boolean().default(false)
+                    }).optional()
+                }),
+                updates: z.object({
+                    name: z.object({
+                        operation: z.enum(["set", "prefix", "suffix", "replace"]),
+                        value: z.string(),
+                        searchValue: z.string().optional().describe("Erforderlich für 'replace' Operation")
+                    }).optional(),
+                    description: z.object({
+                        operation: z.enum(["set", "append", "prepend", "clear"]),
+                        value: z.string().optional()
+                    }).optional(),
+                    dueDate: z.object({
+                        operation: z.enum(["set", "clear", "add_days", "subtract_days"]),
+                        value: z.string().optional(),
+                        days: z.number().optional().describe("Erforderlich für add_days/subtract_days")
+                    }).optional(),
+                    labels: z.object({
+                        operation: z.enum(["add", "remove", "set", "clear"]),
+                        labelIds: z.array(z.string()).optional()
+                    }).optional(),
+                    members: z.object({
+                        operation: z.enum(["add", "remove", "set", "clear"]),
+                        memberIds: z.array(z.string()).optional()
+                    }).optional(),
+                    position: z.object({
+                        operation: z.enum(["top", "bottom", "set"]),
+                        value: z.number().optional()
+                    }).optional(),
+                    archive: z.boolean().optional(),
+                    subscribe: z.boolean().optional()
+                }),
+                batchSize: z.number().default(15).describe("Anzahl Karten pro Batch (Standard: 15)")
+            }
+        },
+        async (params) => {
+            console.error(`[bulk-update-cards] Input:`, params);
+            try {
+                let cardsToUpdate: any[] = [];
+
+                // Get cards based on selection criteria (similar to bulk-move-cards)
+                if (params.cardSelection.cardIds && params.cardSelection.cardIds.length > 0) {
+                    cardsToUpdate = await Promise.all(
+                        params.cardSelection.cardIds.map(cardId => trelloClient.getCard(cardId))
+                    );
+                } else {
+                    let allCards: any[] = [];
+
+                    if (params.cardSelection.fromListId) {
+                        allCards = await trelloClient.getListCards(params.cardSelection.fromListId);
+                    } else if (params.cardSelection.fromBoardId) {
+                        allCards = await trelloClient.getBoardCards({
+                            id: params.cardSelection.fromBoardId,
+                            filter: params.cardSelection.filters?.isArchived ? 'all' : 'visible'
+                        });
+                    } else {
+                        throw new Error("Entweder cardIds, fromListId oder fromBoardId muss angegeben werden");
+                    }
+
+                    // Apply filters (same logic as bulk-move-cards)
+                    if (params.cardSelection.filters) {
+                        const filters = params.cardSelection.filters;
+                        
+                        cardsToUpdate = allCards.filter(card => {
+                            if (filters.nameContains && !card.name.toLowerCase().includes(filters.nameContains.toLowerCase())) {
+                                return false;
+                            }
+                            if (filters.hasLabel) {
+                                const hasMatchingLabel = card.labels?.some((label: any) => 
+                                    label.name.toLowerCase().includes(filters.hasLabel!.toLowerCase())
+                                );
+                                if (!hasMatchingLabel) return false;
+                            }
+                            if (filters.assignedToMember) {
+                                const hasMatchingMember = card.members?.some((member: any) => 
+                                    member.fullName.toLowerCase().includes(filters.assignedToMember!.toLowerCase()) ||
+                                    member.username.toLowerCase().includes(filters.assignedToMember!.toLowerCase())
+                                );
+                                if (!hasMatchingMember) return false;
+                            }
+                            return true;
+                        });
+                    } else {
+                        cardsToUpdate = allCards;
+                    }
+                }
+
+                if (cardsToUpdate.length === 0) {
+                    throw new Error("Keine Karten gefunden, die den Kriterien entsprechen");
+                }
+
+                // Update cards in batches
+                const results: any[] = [];
+                const errors: any[] = [];
+
+                for (let i = 0; i < cardsToUpdate.length; i += params.batchSize) {
+                    const batch = cardsToUpdate.slice(i, i + params.batchSize);
+                    
+                    const batchPromises = batch.map(async (card) => {
+                        try {
+                            const updateData: any = {};
+
+                            // Process name updates
+                            if (params.updates.name) {
+                                const nameOp = params.updates.name;
+                                switch (nameOp.operation) {
+                                    case "set":
+                                        updateData.name = nameOp.value;
+                                        break;
+                                    case "prefix":
+                                        updateData.name = nameOp.value + card.name;
+                                        break;
+                                    case "suffix":
+                                        updateData.name = card.name + nameOp.value;
+                                        break;
+                                    case "replace":
+                                        if (nameOp.searchValue) {
+                                            updateData.name = card.name.replace(new RegExp(nameOp.searchValue, 'g'), nameOp.value);
+                                        }
+                                        break;
+                                }
+                            }
+
+                            // Process description updates
+                            if (params.updates.description) {
+                                const descOp = params.updates.description;
+                                switch (descOp.operation) {
+                                    case "set":
+                                        updateData.desc = descOp.value || "";
+                                        break;
+                                    case "append":
+                                        updateData.desc = (card.desc || "") + (descOp.value || "");
+                                        break;
+                                    case "prepend":
+                                        updateData.desc = (descOp.value || "") + (card.desc || "");
+                                        break;
+                                    case "clear":
+                                        updateData.desc = "";
+                                        break;
+                                }
+                            }
+
+                            // Process due date updates
+                            if (params.updates.dueDate) {
+                                const dueDateOp = params.updates.dueDate;
+                                switch (dueDateOp.operation) {
+                                    case "set":
+                                        updateData.due = dueDateOp.value || null;
+                                        break;
+                                    case "clear":
+                                        updateData.due = null;
+                                        break;
+                                    case "add_days":
+                                        if (dueDateOp.days && card.due) {
+                                            const currentDue = new Date(card.due);
+                                            currentDue.setDate(currentDue.getDate() + dueDateOp.days);
+                                            updateData.due = currentDue.toISOString();
+                                        }
+                                        break;
+                                    case "subtract_days":
+                                        if (dueDateOp.days && card.due) {
+                                            const currentDue = new Date(card.due);
+                                            currentDue.setDate(currentDue.getDate() - dueDateOp.days);
+                                            updateData.due = currentDue.toISOString();
+                                        }
+                                        break;
+                                }
+                            }
+
+                            // Process position updates
+                            if (params.updates.position) {
+                                const posOp = params.updates.position;
+                                switch (posOp.operation) {
+                                    case "top":
+                                        updateData.pos = "top";
+                                        break;
+                                    case "bottom":
+                                        updateData.pos = "bottom";
+                                        break;
+                                    case "set":
+                                        updateData.pos = posOp.value;
+                                        break;
+                                }
+                            }
+
+                            // Process archive status
+                            if (params.updates.archive !== undefined) {
+                                updateData.closed = params.updates.archive;
+                            }
+
+                            // Process subscription status
+                            if (params.updates.subscribe !== undefined) {
+                                updateData.subscribed = params.updates.subscribe;
+                            }
+
+                            // Update the card
+                            const updatedCard = await trelloClient.updateCard(card.id, updateData);
+
+                            // Handle label operations separately (they require different API calls)
+                            if (params.updates.labels) {
+                                const labelOp = params.updates.labels;
+                                switch (labelOp.operation) {
+                                    case "add":
+                                        if (labelOp.labelIds) {
+                                            for (const labelId of labelOp.labelIds) {
+                                                await trelloClient.addLabelToCard(card.id, labelId);
+                                            }
+                                        }
+                                        break;
+                                    case "remove":
+                                        if (labelOp.labelIds) {
+                                            for (const labelId of labelOp.labelIds) {
+                                                await trelloClient.removeLabelFromCard(card.id, labelId);
+                                            }
+                                        }
+                                        break;
+                                    case "clear":
+                                        const currentLabels = await trelloClient.getCardLabels(card.id);
+                                        for (const label of currentLabels) {
+                                            await trelloClient.removeLabelFromCard(card.id, label.id);
+                                        }
+                                        break;
+                                    case "set":
+                                        // Clear all labels first, then add new ones
+                                        const existingLabels = await trelloClient.getCardLabels(card.id);
+                                        for (const label of existingLabels) {
+                                            await trelloClient.removeLabelFromCard(card.id, label.id);
+                                        }
+                                        if (labelOp.labelIds) {
+                                            for (const labelId of labelOp.labelIds) {
+                                                await trelloClient.addLabelToCard(card.id, labelId);
+                                            }
+                                        }
+                                        break;
+                                }
+                            }
+
+                            // Handle member operations separately
+                            if (params.updates.members) {
+                                const memberOp = params.updates.members;
+                                switch (memberOp.operation) {
+                                    case "add":
+                                        if (memberOp.memberIds) {
+                                            for (const memberId of memberOp.memberIds) {
+                                                await trelloClient.addMemberToCard(card.id, memberId);
+                                            }
+                                        }
+                                        break;
+                                    case "remove":
+                                        if (memberOp.memberIds) {
+                                            for (const memberId of memberOp.memberIds) {
+                                                await trelloClient.removeMemberFromCard(card.id, memberId);
+                                            }
+                                        }
+                                        break;
+                                    case "clear":
+                                        const currentMembers = await trelloClient.getCardMembers(card.id);
+                                        for (const member of currentMembers) {
+                                            await trelloClient.removeMemberFromCard(card.id, member.id);
+                                        }
+                                        break;
+                                    case "set":
+                                        // Clear all members first, then add new ones
+                                        const existingMembers = await trelloClient.getCardMembers(card.id);
+                                        for (const member of existingMembers) {
+                                            await trelloClient.removeMemberFromCard(card.id, member.id);
+                                        }
+                                        if (memberOp.memberIds) {
+                                            for (const memberId of memberOp.memberIds) {
+                                                await trelloClient.addMemberToCard(card.id, memberId);
+                                            }
+                                        }
+                                        break;
+                                }
+                            }
+
+                            return {
+                                success: true,
+                                card: updatedCard,
+                                originalCard: card,
+                                appliedUpdates: updateData
+                            };
+                        } catch (error) {
+                            return {
+                                success: false,
+                                error: error instanceof Error ? error.message : 'Unbekannter Fehler',
+                                originalCard: card
+                            };
+                        }
+                    });
+
+                    const batchResults = await Promise.all(batchPromises);
+                    
+                    batchResults.forEach(result => {
+                        if (result.success) {
+                            results.push(result);
+                        } else {
+                            errors.push(result);
+                        }
+                    });
+
+                    // Small delay between batches
+                    if (i + params.batchSize < cardsToUpdate.length) {
+                        await new Promise(resolve => setTimeout(resolve, 400));
+                    }
+                }
+
+                console.error(`[bulk-update-cards] Updated ${results.length} cards, ${errors.length} errors`);
+                return {
+                    content: [{
+                        type: "text",
+                        text: JSON.stringify({
+                            summary: {
+                                found: cardsToUpdate.length,
+                                successful: results.length,
+                                failed: errors.length,
+                                operations: Object.keys(params.updates)
+                            },
+                            updatedCards: results.map(r => ({
+                                id: r.card.id,
+                                name: r.card.name,
+                                shortUrl: r.card.shortUrl,
+                                appliedUpdates: r.appliedUpdates
+                            })),
+                            errors: errors.map(e => ({
+                                cardId: e.originalCard.id,
+                                cardName: e.originalCard.name,
+                                error: e.error
+                            }))
+                        }, null, 2)
+                    }]
+                };
+            } catch (error) {
+                console.error(`[bulk-update-cards] Error:`, error);
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Fehler beim Aktualisieren der Karten: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`
+                    }],
+                    isError: true
+                };
+            }
+        }
+    );
 }

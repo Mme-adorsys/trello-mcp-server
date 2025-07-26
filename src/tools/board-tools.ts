@@ -517,4 +517,500 @@ export function registerBoardTools(server: McpServer, trelloClient: TrelloClient
         },
         async (params) => helpers.getBoardOverview(params.boardId)
     );
+
+    // Find List by Name
+    server.registerTool(
+        "find-list-by-name",
+        {
+            title: "Liste nach Name suchen",
+            description: "Sucht nach Listen auf einem Board anhand des Namens (unterstützt partielle Übereinstimmung).",
+            inputSchema: {
+                listName: z.string().min(1, "Listen-Name ist erforderlich"),
+                boardId: z.string().min(1, "Board-ID ist erforderlich"),
+                exactMatch: z.boolean().default(false).describe("Exakte Übereinstimmung des Namens (standardmäßig false für partielle Suche)"),
+                includeCards: z.boolean().default(false).describe("Karten der gefundenen Listen mitladen"),
+                includeArchived: z.boolean().default(false).describe("Archivierte Listen in Suche einbeziehen"),
+                caseSensitive: z.boolean().default(false).describe("Groß-/Kleinschreibung beachten")
+            }
+        },
+        async (params) => {
+            console.error(`[find-list-by-name] Input:`, params);
+            try {
+                // Get all lists from board
+                const allLists = await trelloClient.getBoardLists({
+                    id: params.boardId,
+                    filter: params.includeArchived ? 'all' : 'open'
+                });
+
+                // Filter lists by name
+                let matchingLists = allLists.filter(list => {
+                    const listNameToCheck = params.caseSensitive ? list.name : list.name.toLowerCase();
+                    const searchName = params.caseSensitive ? params.listName : params.listName.toLowerCase();
+                    
+                    return params.exactMatch 
+                        ? listNameToCheck === searchName
+                        : listNameToCheck.includes(searchName);
+                });
+
+                if (matchingLists.length === 0) {
+                    const availableListNames = allLists.map(l => l.name).join(', ');
+                    throw new Error(`Keine Liste mit Namen '${params.listName}' gefunden. Verfügbare Listen: ${availableListNames}`);
+                }
+
+                // Optionally include cards for each matching list
+                if (params.includeCards) {
+                    const listsWithCards = await Promise.all(
+                        matchingLists.map(async (list) => {
+                            const cards = await trelloClient.getListCards(list.id);
+                            return {
+                                ...list,
+                                cards: cards,
+                                cardCount: cards.length
+                            };
+                        })
+                    );
+                    matchingLists = listsWithCards;
+                }
+
+                console.error(`[find-list-by-name] Found ${matchingLists.length} lists`);
+                return {
+                    content: [{
+                        type: "text",
+                        text: JSON.stringify({
+                            searchCriteria: {
+                                listName: params.listName,
+                                exactMatch: params.exactMatch,
+                                caseSensitive: params.caseSensitive,
+                                includeArchived: params.includeArchived,
+                                includeCards: params.includeCards
+                            },
+                            results: matchingLists,
+                            resultCount: matchingLists.length
+                        }, null, 2)
+                    }]
+                };
+            } catch (error) {
+                console.error(`[find-list-by-name] Error:`, error);
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Fehler beim Suchen der Liste: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`
+                    }],
+                    isError: true
+                };
+            }
+        }
+    );
+
+    // Find Card by Name
+    server.registerTool(
+        "find-card-by-name",
+        {
+            title: "Karte nach Name suchen",
+            description: "Sucht nach Karten auf einem Board oder in einer Liste anhand des Namens (unterstützt partielle Übereinstimmung).",
+            inputSchema: {
+                cardName: z.string().min(1, "Karten-Name ist erforderlich"),
+                boardId: z.string().optional().describe("Board-ID (erforderlich wenn listId nicht angegeben)"),
+                listId: z.string().optional().describe("Listen-ID für Suche in spezifischer Liste"),
+                exactMatch: z.boolean().default(false).describe("Exakte Übereinstimmung des Namens (standardmäßig false für partielle Suche)"),
+                includeArchived: z.boolean().default(false).describe("Archivierte Karten in Suche einbeziehen"),
+                caseSensitive: z.boolean().default(false).describe("Groß-/Kleinschreibung beachten"),
+                includeDetails: z.boolean().default(false).describe("Detaillierte Karteninfos laden (Beschreibung, Labels, Mitglieder, etc.)"),
+                filterByLabel: z.string().optional().describe("Nach Label-Namen filtern"),
+                filterByMember: z.string().optional().describe("Nach Mitgliedername filtern"),
+                filterByDueDate: z.enum(["overdue", "due_today", "due_week", "no_due_date"]).optional().describe("Nach Fälligkeitsdatum filtern")
+            }
+        },
+        async (params) => {
+            console.error(`[find-card-by-name] Input:`, params);
+            try {
+                if (!params.boardId && !params.listId) {
+                    throw new Error("Entweder boardId oder listId muss angegeben werden");
+                }
+
+                let cards: any[] = [];
+
+                // Get cards from board or list
+                if (params.listId) {
+                    cards = await trelloClient.getListCards(params.listId);
+                } else if (params.boardId) {
+                    const filter = params.includeArchived ? 'all' : 'visible';
+                    cards = await trelloClient.getBoardCards({
+                        id: params.boardId,
+                        filter: filter
+                    });
+                }
+
+                // Filter cards by name
+                let matchingCards = cards.filter(card => {
+                    const cardNameToCheck = params.caseSensitive ? card.name : card.name.toLowerCase();
+                    const searchName = params.caseSensitive ? params.cardName : params.cardName.toLowerCase();
+                    
+                    return params.exactMatch 
+                        ? cardNameToCheck === searchName
+                        : cardNameToCheck.includes(searchName);
+                });
+
+                // Apply additional filters
+                if (params.filterByLabel) {
+                    matchingCards = matchingCards.filter(card => 
+                        card.labels && card.labels.some((label: any) => 
+                            label.name.toLowerCase().includes(params.filterByLabel!.toLowerCase())
+                        )
+                    );
+                }
+
+                if (params.filterByMember) {
+                    matchingCards = matchingCards.filter(card => 
+                        card.members && card.members.some((member: any) => 
+                            member.fullName.toLowerCase().includes(params.filterByMember!.toLowerCase()) ||
+                            member.username.toLowerCase().includes(params.filterByMember!.toLowerCase())
+                        )
+                    );
+                }
+
+                if (params.filterByDueDate) {
+                    const now = new Date();
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+                    matchingCards = matchingCards.filter(card => {
+                        if (!card.due) {
+                            return params.filterByDueDate === "no_due_date";
+                        }
+                        
+                        const dueDate = new Date(card.due);
+                        switch (params.filterByDueDate) {
+                            case "overdue":
+                                return dueDate < today;
+                            case "due_today":
+                                return dueDate >= today && dueDate < new Date(today.getTime() + 24 * 60 * 60 * 1000);
+                            case "due_week":
+                                return dueDate >= today && dueDate <= nextWeek;
+                            case "no_due_date":
+                                return false;
+                            default:
+                                return true;
+                        }
+                    });
+                }
+
+                if (matchingCards.length === 0) {
+                    throw new Error(`Keine Karte mit Namen '${params.cardName}' gefunden`);
+                }
+
+                // Optionally load detailed card information
+                if (params.includeDetails) {
+                    const detailedCards = await Promise.all(
+                        matchingCards.map(async (card) => {
+                            const detailedCard = await trelloClient.getCard(card.id);
+                            return detailedCard;
+                        })
+                    );
+                    matchingCards = detailedCards;
+                }
+
+                console.error(`[find-card-by-name] Found ${matchingCards.length} cards`);
+                return {
+                    content: [{
+                        type: "text",
+                        text: JSON.stringify({
+                            searchCriteria: {
+                                cardName: params.cardName,
+                                exactMatch: params.exactMatch,
+                                caseSensitive: params.caseSensitive,
+                                includeArchived: params.includeArchived,
+                                includeDetails: params.includeDetails,
+                                filterByLabel: params.filterByLabel,
+                                filterByMember: params.filterByMember,
+                                filterByDueDate: params.filterByDueDate
+                            },
+                            results: matchingCards,
+                            resultCount: matchingCards.length
+                        }, null, 2)
+                    }]
+                };
+            } catch (error) {
+                console.error(`[find-card-by-name] Error:`, error);
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Fehler beim Suchen der Karte: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`
+                    }],
+                    isError: true
+                };
+            }
+        }
+    );
+
+    // Quick Find Board (with fuzzy search)
+    server.registerTool(
+        "quick-find-board",
+        {
+            title: "Board schnell finden (Fuzzy Search)",
+            description: "Findet Boards mit fortgeschrittenem Fuzzy-Matching und Ranking. Ideal für schnellen Zugriff ohne genaue Namenskenntnis.",
+            inputSchema: {
+                searchTerm: z.string().min(1, "Suchbegriff ist erforderlich"),
+                maxResults: z.number().default(5).describe("Maximale Anzahl Ergebnisse (Standard: 5)"),
+                includeDescription: z.boolean().default(false).describe("Board-Beschreibungen in Suche einbeziehen"),
+                includeArchived: z.boolean().default(false).describe("Archivierte Boards in Suche einbeziehen"),
+                matchThreshold: z.number().min(0).max(1).default(0.3).describe("Mindest-Ähnlichkeitsschwelle (0-1, Standard: 0.3)")
+            }
+        },
+        async (params) => {
+            console.error(`[quick-find-board] Input:`, params);
+            try {
+                const filter = params.includeArchived ? 'all' : 'open';
+                const boards = await trelloClient.getBoards(filter, 'all');
+
+                // Simple fuzzy matching algorithm
+                const fuzzyMatch = (searchTerm: string, targetText: string): number => {
+                    const search = searchTerm.toLowerCase();
+                    const target = targetText.toLowerCase();
+                    
+                    // Exact match gets highest score
+                    if (target === search) return 1.0;
+                    
+                    // Contains match gets high score
+                    if (target.includes(search)) return 0.8;
+                    
+                    // Calculate character-based similarity
+                    let matches = 0;
+                    let searchIndex = 0;
+                    
+                    for (let i = 0; i < target.length && searchIndex < search.length; i++) {
+                        if (target[i] === search[searchIndex]) {
+                            matches++;
+                            searchIndex++;
+                        }
+                    }
+                    
+                    return matches / search.length;
+                };
+
+                // Score and rank boards
+                const scoredBoards = boards.map(board => {
+                    let score = fuzzyMatch(params.searchTerm, board.name);
+                    
+                    // Also check description if requested
+                    if (params.includeDescription && board.desc) {
+                        const descScore = fuzzyMatch(params.searchTerm, board.desc);
+                        score = Math.max(score, descScore * 0.7); // Description matches get slightly lower weight
+                    }
+                    
+                    return { board, score };
+                })
+                .filter(item => item.score >= params.matchThreshold)
+                .sort((a, b) => b.score - a.score)
+                .slice(0, params.maxResults);
+
+                if (scoredBoards.length === 0) {
+                    throw new Error(`Keine Boards gefunden für Suchbegriff '${params.searchTerm}' (Schwellenwert: ${params.matchThreshold})`);
+                }
+
+                console.error(`[quick-find-board] Found ${scoredBoards.length} boards`);
+                return {
+                    content: [{
+                        type: "text",
+                        text: JSON.stringify({
+                            searchCriteria: {
+                                searchTerm: params.searchTerm,
+                                maxResults: params.maxResults,
+                                includeDescription: params.includeDescription,
+                                includeArchived: params.includeArchived,
+                                matchThreshold: params.matchThreshold
+                            },
+                            results: scoredBoards.map(item => ({
+                                ...item.board,
+                                matchScore: Math.round(item.score * 100) / 100
+                            })),
+                            resultCount: scoredBoards.length
+                        }, null, 2)
+                    }]
+                };
+            } catch (error) {
+                console.error(`[quick-find-board] Error:`, error);
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Fehler beim Suchen der Boards: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`
+                    }],
+                    isError: true
+                };
+            }
+        }
+    );
+
+    // Get Board Structure (Complete overview in one call)
+    server.registerTool(
+        "get-board-structure",
+        {
+            title: "Vollständige Board-Struktur abrufen",
+            description: "Lädt komplette Board-Struktur mit Listen, Karten-Anzahlen und Statistiken in einem einzigen Aufruf.",
+            inputSchema: {
+                boardId: z.string().min(1, "Board-ID ist erforderlich"),
+                includeCards: z.boolean().default(false).describe("Alle Karten-Details laden (langsamer, aber vollständig)"),
+                includeMembers: z.boolean().default(true).describe("Board-Mitglieder laden"),
+                includeLabels: z.boolean().default(true).describe("Board-Labels laden"),
+                includeCustomFields: z.boolean().default(false).describe("Custom Fields laden"),
+                cardLimit: z.number().default(50).describe("Maximale Anzahl Karten pro Liste (wenn includeCards = true)")
+            }
+        },
+        async (params) => {
+            console.error(`[get-board-structure] Input:`, params);
+            try {
+                // Parallel loading for better performance
+                const promises: Promise<any>[] = [
+                    trelloClient.getBoard(params.boardId),
+                    trelloClient.getBoardLists({ id: params.boardId })
+                ];
+
+                if (params.includeMembers) {
+                    promises.push(trelloClient.getBoardMembers(params.boardId));
+                }
+                if (params.includeLabels) {
+                    promises.push(trelloClient.getBoardLabels(params.boardId));
+                }
+                if (params.includeCustomFields) {
+                    promises.push(trelloClient.getBoardCustomFields(params.boardId));
+                }
+
+                const results = await Promise.all(promises);
+                let resultIndex = 0;
+                
+                const board = results[resultIndex++];
+                const lists = results[resultIndex++];
+                const members = params.includeMembers ? results[resultIndex++] : [];
+                const labels = params.includeLabels ? results[resultIndex++] : [];
+                const customFields = params.includeCustomFields ? results[resultIndex++] : [];
+
+                // Get cards for each list (either count or full details)
+                const listsWithCards = await Promise.all(
+                    lists.map(async (list: any) => {
+                        if (params.includeCards) {
+                            const cards = await trelloClient.getListCards(list.id);
+                            return {
+                                ...list,
+                                cards: cards.slice(0, params.cardLimit),
+                                cardCount: cards.length,
+                                hasMoreCards: cards.length > params.cardLimit
+                            };
+                        } else {
+                            const cards = await trelloClient.getListCards(list.id, 'id');
+                            return {
+                                ...list,
+                                cardCount: cards.length
+                            };
+                        }
+                    })
+                );
+
+                // Calculate statistics
+                const totalCards = listsWithCards.reduce((sum, list) => sum + list.cardCount, 0);
+                const stats = {
+                    totalLists: lists.length,
+                    totalCards: totalCards,
+                    totalMembers: members.length,
+                    totalLabels: labels.length,
+                    averageCardsPerList: Math.round((totalCards / lists.length) * 100) / 100,
+                    emptyLists: listsWithCards.filter(list => list.cardCount === 0).length
+                };
+
+                const result = {
+                    board: {
+                        ...board,
+                        statistics: stats
+                    },
+                    lists: listsWithCards,
+                    members: members,
+                    labels: labels,
+                    customFields: customFields,
+                    metadata: {
+                        loadedAt: new Date().toISOString(),
+                        includeCards: params.includeCards,
+                        cardLimit: params.cardLimit
+                    }
+                };
+
+                console.error(`[get-board-structure] Loaded board with ${lists.length} lists and ${totalCards} cards`);
+                return {
+                    content: [{
+                        type: "text",
+                        text: JSON.stringify(result, null, 2)
+                    }]
+                };
+            } catch (error) {
+                console.error(`[get-board-structure] Error:`, error);
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Fehler beim Laden der Board-Struktur: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`
+                    }],
+                    isError: true
+                };
+            }
+        }
+    );
+
+    // List Board Lists (Minimal)
+    server.registerTool(
+        "list-board-lists",
+        {
+            title: "Board-Listen auflisten (minimal)",
+            description: "Lädt nur Namen und IDs der Listen eines Boards - spart Token.",
+            inputSchema: {
+                boardId: z.string().min(1, "Board-ID ist erforderlich")
+            }
+        },
+        async (params) => {
+            try {
+                const lists = await trelloClient.getBoardLists({ id: params.boardId });
+                const minimal = lists.map((list: any) => ({ id: list.id, name: list.name }));
+                return {
+                    content: [{ type: "text", text: JSON.stringify(minimal) }]
+                };
+            } catch (error) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Fehler: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`
+                    }],
+                    isError: true
+                };
+            }
+        }
+    );
+
+    // List Board Cards (Minimal)
+    server.registerTool(
+        "list-board-cards",
+        {
+            title: "Board-Karten auflisten (minimal)",
+            description: "Lädt nur Namen, IDs und Listen-IDs aller Karten eines Boards - spart Token.",
+            inputSchema: {
+                boardId: z.string().min(1, "Board-ID ist erforderlich")
+            }
+        },
+        async (params) => {
+            try {
+                const cards = await trelloClient.getBoardCards({ id: params.boardId });
+                const minimal = cards.map((card: any) => ({ 
+                    id: card.id, 
+                    name: card.name, 
+                    listId: card.idList 
+                }));
+                return {
+                    content: [{ type: "text", text: JSON.stringify(minimal) }]
+                };
+            } catch (error) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Fehler: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`
+                    }],
+                    isError: true
+                };
+            }
+        }
+    );
 }

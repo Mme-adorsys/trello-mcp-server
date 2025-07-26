@@ -411,4 +411,33 @@ export function registerListTools(server: McpServer, trelloClient: TrelloClient,
         },
         async (params) => helpers.getListByName(params.listName, params.boardId)
     );
+
+    // List Cards in List (Minimal)
+    server.registerTool(
+        "list-cards-in-list",
+        {
+            title: "Listen-Karten auflisten (minimal)",
+            description: "Lädt nur Namen und IDs der Karten einer Liste - spart Token.",
+            inputSchema: {
+                listId: z.string().min(1, "Listen-ID ist erforderlich")
+            }
+        },
+        async (params) => {
+            try {
+                const cards = await trelloClient.getListCards(params.listId);
+                const minimal = cards.map((card: any) => ({ id: card.id, name: card.name }));
+                return {
+                    content: [{ type: "text", text: JSON.stringify(minimal) }]
+                };
+            } catch (error) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Fehler: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`
+                    }],
+                    isError: true
+                };
+            }
+        }
+    );
 }
