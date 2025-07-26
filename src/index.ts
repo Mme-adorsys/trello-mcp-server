@@ -58,6 +58,9 @@ server.registerTool(
 );
 
 
+
+
+
 // Board Management Tools
 server.registerTool(
     "create-board",
@@ -122,6 +125,8 @@ server.registerTool(
         }
     }
 );
+
+
 
 server.registerTool(
     "close-board",
@@ -1057,6 +1062,83 @@ server.registerTool(
 
 // RESOURCES - Application-controlled data
 
+// Coding Guidelines Resource
+server.registerResource(
+    "coding-guidelines",
+    "trello://coding-guidelines",
+    {
+        title: "Coding Guidelines",
+        description: "Standard coding guidelines and best practices for the project",
+        mimeType: "text/plain"
+    },
+    async (uri: URL, extra: RequestHandlerExtra<any, any>) => {
+        const guidelines = `# Coding Guidelines
+
+## General Principles
+- Write clean, readable, and maintainable code
+- Follow the principle of least surprise
+- Use descriptive names for variables, functions, and classes
+- Keep functions small and focused on a single responsibility
+
+## TypeScript/JavaScript Standards
+- Use TypeScript for type safety
+- Prefer const over let, avoid var
+- Use arrow functions for callbacks and short functions
+- Always handle errors appropriately with try-catch blocks
+- Use async/await instead of promises when possible
+
+## Code Organization
+- Group related functionality together
+- Use meaningful file and directory names
+- Keep imports organized (external first, then internal)
+- Export only what needs to be used elsewhere
+
+## Documentation
+- Write JSDoc comments for public APIs
+- Include examples in documentation when helpful
+- Keep README files up to date
+- Document complex business logic with inline comments
+
+## Testing
+- Write unit tests for all business logic
+- Use descriptive test names that explain what is being tested
+- Test both happy path and error cases
+- Maintain good test coverage
+
+## Git Practices
+- Write clear, descriptive commit messages
+- Make small, focused commits
+- Use branches for features and bug fixes
+- Review code before merging
+
+## Error Handling
+- Always handle errors gracefully
+- Provide meaningful error messages to users
+- Log errors with sufficient context for debugging
+- Use appropriate error types and status codes
+
+## Performance
+- Avoid unnecessary computations in loops
+- Cache expensive operations when appropriate
+- Use pagination for large data sets
+- Optimize database queries
+
+## Security
+- Never expose sensitive information in logs
+- Validate all user inputs
+- Use secure authentication and authorization
+- Keep dependencies up to date`;
+
+        return {
+            contents: [{
+                uri: uri.href,
+                text: guidelines,
+                mimeType: "text/plain"
+            }]
+        };
+    }
+);
+
 // Boards Resource
 server.registerResource(
     "boards",
@@ -1188,7 +1270,25 @@ server.registerResource(
 // PROMPTS - User-controlled templates
 
 server.registerPrompt(
-    "implement-task",
+    "setup-project",
+    {
+        title: "Setup the project guidelines",
+        description: "Load the resource coding-guidelines and add them to the Claude.md",
+    },
+    () => ({
+        messages: [{
+            role: "user",
+            content: {
+                type: "text",
+                text: `ToDo: Load the resource 'coding-guidelines' and add them to the Claude.md.`
+            }
+        }]
+    })
+);
+
+
+server.registerPrompt(
+    "implementTask",
     {
         title: "Implement the Task",
         description: "Take the next task from the list next-actions and implement it",
@@ -1199,8 +1299,9 @@ server.registerPrompt(
             content: {
                 type: "text",
                 text: `
-        Pre-Implementation: 
-        1. from trello get-next-actions-card with boardFilterName=GTD and move it to the list 'In Progress'
+                
+                Pre-Implementation: 
+        1. from trello get-next-actions-card with boardFilterName=DATEV and move it to the list 'In Progress'
         2. for this card get-next-actions-prompt
         3. analyse the prompt, make a todo list with a plan to implement the task according to prompt
          
